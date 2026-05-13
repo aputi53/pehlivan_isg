@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 
 import 'saha_denetim_screen.dart';
 
+import '../widgets/app_drawer.dart';
+
 class AnaEkran extends StatelessWidget {
   const AnaEkran({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(),
+      drawer: const AppDrawer(),
       backgroundColor: const Color(0xFF0D1117),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -15,7 +19,7 @@ class AnaEkran extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 10),
+              const SizedBox(height: 0.5),
 
               // ANA LOGO
               Center(
@@ -62,8 +66,8 @@ class AnaEkran extends StatelessWidget {
                       child: Center(
                         child: Image.asset(
                           'assets/logo_sari.png',
-                          width: 85,
-                          height: 85,
+                          width: 75,
+                          height: 75,
                           fit: BoxFit.contain,
                           errorBuilder: (context, error, stackTrace) {
                             return Icon(

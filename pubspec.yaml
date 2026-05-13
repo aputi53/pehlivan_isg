@@ -1,0 +1,57 @@
+name: pehlivan_isg
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.5
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  image_picker: ^1.1.2
+  url_launcher: ^6.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.0  # BU SATIRI EKLEMELİSİNİZ
+
+# ---------------------------------------------------------
+# FLUTTER AYARLARI VE ASSET TANIMLAMALARI
+# ---------------------------------------------------------
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/
+
+# ---------------------------------------------------------
+# UYGULAMA İKONU AYARLARI
+# ---------------------------------------------------------
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: false
+  image_path: "assets/yeni_ikon.png"
+  adaptive_icon_background: "#0d1117"
+  # Eğer logonuz çok küçük kalıyorsa, PNG dosyanızın içindeki
+  # boşlukları azaltıp şu komutu tekrar çalıştırın:
+  adaptive_icon_foreground: "assets/yeni_ikon.png"
+
+flutter_native_splash:
+  color: "#0d1117"
+  image: assets/splash_logo.png
+  android_gravity: center
+  fullscreen: false
+
+  android_12:
+    image: assets/splash_logo.png
+    color: "#0d1117"
+    # BURADA BAŞKA HİÇBİR SATIR (image_fraction vb.) OLMASIN

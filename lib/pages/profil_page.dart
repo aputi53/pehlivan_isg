@@ -1,6 +1,8 @@
+import 'dart:convert'; // KURAL 1: Base64 kod çözümü için eklendi
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // Hafıza kaydı için eklendi
 import 'edit_profile_page.dart';
 
 class ProfilPage extends StatefulWidget {
@@ -11,6 +13,15 @@ class ProfilPage extends StatefulWidget {
 }
 
 class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateMixin {
+  // Güvenli hafıza nesnesi oluşturuluyor
+  final _storage = const FlutterSecureStorage(
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true, // Güvenli ve kalıcı şifreleme havuzunu zorunlu kılar
+      sharedPreferencesName: 'PehlivanISG_Storage', // Verilerin yazılacağı özel bir dosya adı tanımlar
+    ),
+  );
+
+  // Başlangıç varsayılan değerleri (Eğer hafızada kayıt yoksa bunlar görünecek)
   String name = "Abdurrahman Pehlivan";
   String email = "kullanici@isg.com";
   String phone = "+90 5xx xxx xx xx";
@@ -19,7 +30,7 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
   String employeeId = "ISG-2024-001";
   String certLevel = "A Sınıfı";
   String experience = "8 Yıl";
-  File? profileImage;
+  String? profileImageBase64; // DEĞİŞİKLİK: File yerine String kullanıyoruz
 
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
@@ -28,6 +39,8 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
+    _loadProfileData(); // Uygulama açılırken kaydedilen verileri yükle
+
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
@@ -36,6 +49,31 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
     _slideAnim = Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero)
         .animate(CurvedAnimation(parent: _animController, curve: Curves.easeOut));
     _animController.forward();
+  }
+
+  // SÜREÇ ANALİZİ: Hafızadan verileri güvenli okuma fonksiyonu
+  Future<void> _loadProfileData() async {
+    final savedName = await _storage.read(key: "user_name");
+    final savedEmail = await _storage.read(key: "user_email");
+    final savedPhone = await _storage.read(key: "user_phone");
+    final savedTitle = await _storage.read(key: "user_title");
+    final savedDept = await _storage.read(key: "user_dept");
+    final savedEmpId = await _storage.read(key: "user_emp_id");
+    final savedCert = await _storage.read(key: "user_cert");
+    final savedExp = await _storage.read(key: "user_exp");
+    final savedImg = await _storage.read(key: "user_image_base64");
+
+    setState(() {
+      if (savedName != null) name = savedName;
+      if (savedEmail != null) email = savedEmail;
+      if (savedPhone != null) phone = savedPhone;
+      if (savedTitle != null) title = savedTitle;
+      if (savedDept != null) department = savedDept;
+      if (savedEmpId != null) employeeId = savedEmpId;
+      if (savedCert != null) certLevel = savedCert;
+      if (savedExp != null) experience = savedExp;
+      if (savedImg != null) profileImageBase64 = savedImg;
+    });
   }
 
   @override
@@ -141,7 +179,6 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
       ),
       child: Stack(
         children: [
-          // Decorative corner accent
           Positioned(
             top: 0,
             right: 0,
@@ -185,9 +222,11 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
                       child: CircleAvatar(
                         radius: 52,
                         backgroundColor: const Color(0xFF0F1420),
-                        backgroundImage:
-                        profileImage != null ? FileImage(profileImage!) : null,
-                        child: profileImage == null
+                        // DEĞİŞİKLİK: FileImage yerine metni resme çözen MemoryImage kullanıldı
+                        backgroundImage: profileImageBase64 != null
+                            ? MemoryImage(base64Decode(profileImageBase64!))
+                            : null,
+                        child: profileImageBase64 == null
                             ? const Icon(Icons.person, size: 52, color: Color(0xFFE8B84B))
                             : null,
                       ),
@@ -251,12 +290,11 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
 
                 const SizedBox(height: 4),
 
-                // ISG Badge
+                // DÜZELTİLMİŞ KISIM
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.center, // <-- Bu şekilde güncelleyin
                   children: [
                     const Icon(Icons.verified_outlined, size: 14, color: Color(0xFF4ADE80)),
-                    const SizedBox(width: 4),
                     Text(
                       "Sertifikalı ISG Uzmanı · $certLevel",
                       style: const TextStyle(
@@ -418,6 +456,7 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
   }
 
   // ── ACTIONS ───────────────────────────────────────────────────────────────
+  // DEĞİŞİKLİK: Ana ekrandaki kamera ikonuna basınca da Base64 formatında kalıcı kaydetmesi sağlandı.
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final source = await showModalBottomSheet<ImageSource>(
@@ -459,10 +498,19 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
     if (source == null) return;
     final picked = await picker.pickImage(source: source, imageQuality: 85);
     if (picked != null) {
-      setState(() => profileImage = File(picked.path));
+      final bytes = await picked.readAsBytes();
+      final String base64Str = base64Encode(bytes);
+
+      // Doğrudan hafızaya yaz
+      await _storage.write(key: "user_image_base64", value: base64Str);
+
+      setState(() {
+        profileImageBase64 = base64Str;
+      });
     }
   }
 
+  // SÜREÇ ANALİZİ: Düzenleme sayfasından gelen verileri hafızaya mühürleme adımı
   Future<void> _openEditPage() async {
     final result = await Navigator.push(
       context,
@@ -476,12 +524,27 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
           employeeId: employeeId,
           certLevel: certLevel,
           experience: experience,
-          profileImage: profileImage,
+          profileImageBase64: profileImageBase64, // DEĞİŞİKLİK
         ),
       ),
     );
 
-    if (result != null && result is Map) {
+    // Kullanıcı değişiklikleri kaydedip geri döndüyse
+    if (result != null && result is Map<String, dynamic>) {
+      // 1. Gelen tüm verileri güvenli hafızaya kalıcı olarak yazıyoruz
+      if (result["name"] != null) await _storage.write(key: "user_name", value: result["name"]);
+      if (result["email"] != null) await _storage.write(key: "user_email", value: result["email"]);
+      if (result["phone"] != null) await _storage.write(key: "user_phone", value: result["phone"]);
+      if (result["title"] != null) await _storage.write(key: "user_title", value: result["title"]);
+      if (result["department"] != null) await _storage.write(key: "user_dept", value: result["department"]);
+      if (result["employeeId"] != null) await _storage.write(key: "user_emp_id", value: result["employeeId"]);
+      if (result["certLevel"] != null) await _storage.write(key: "user_cert", value: result["certLevel"]);
+      if (result["experience"] != null) await _storage.write(key: "user_exp", value: result["experience"]);
+      if (result["profileImageBase64"] != null) {
+        await _storage.write(key: "user_image_base64", value: result["profileImageBase64"]);
+      }
+
+      // 2. Arayüzün anlık güncellenmesi için state'i yeniliyoruz
       setState(() {
         name = result["name"] ?? name;
         email = result["email"] ?? email;
@@ -491,7 +554,9 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
         employeeId = result["employeeId"] ?? employeeId;
         certLevel = result["certLevel"] ?? certLevel;
         experience = result["experience"] ?? experience;
-        if (result["profileImage"] != null) profileImage = result["profileImage"];
+        if (result["profileImageBase64"] != null) {
+          profileImageBase64 = result["profileImageBase64"];
+        }
       });
     }
   }

@@ -1,6 +1,8 @@
+import 'dart:convert'; // KURAL 1: Base64 dönüşümü için eklendi
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // Hafıza kaydı için eklendi
 
 class EditProfilePage extends StatefulWidget {
   final String name;
@@ -11,7 +13,7 @@ class EditProfilePage extends StatefulWidget {
   final String employeeId;
   final String certLevel;
   final String experience;
-  final File? profileImage;
+  final String? profileImageBase64;
 
   const EditProfilePage({
     super.key,
@@ -23,7 +25,7 @@ class EditProfilePage extends StatefulWidget {
     required this.employeeId,
     required this.certLevel,
     required this.experience,
-    this.profileImage,
+    this.profileImageBase64,
   });
 
   @override
@@ -31,6 +33,14 @@ class EditProfilePage extends StatefulWidget {
 }
 
 class _EditProfilePageState extends State<EditProfilePage> {
+  // SÜREÇ ANALİZİ: ProfilPage ile birebir aynı isimde, şifreli güvenli havuz nesnesi oluşturuldu
+  final _storage = const FlutterSecureStorage(
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+      sharedPreferencesName: 'PehlivanISG_Storage',
+    ),
+  );
+
   late TextEditingController nameController;
   late TextEditingController emailController;
   late TextEditingController phoneController;
@@ -39,7 +49,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   late TextEditingController employeeIdController;
   late TextEditingController experienceController;
 
-  File? _profileImage;
+  String? _base64Image;
   String _selectedCertLevel = "A Sınıfı";
   final _formKey = GlobalKey<FormState>();
 
@@ -55,7 +65,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     departmentController = TextEditingController(text: widget.department);
     employeeIdController = TextEditingController(text: widget.employeeId);
     experienceController = TextEditingController(text: widget.experience);
-    _profileImage = widget.profileImage;
+    _base64Image = widget.profileImageBase64;
     _selectedCertLevel = widget.certLevel;
   }
 
@@ -127,10 +137,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           child: CircleAvatar(
                             radius: 56,
                             backgroundColor: const Color(0xFF0F1420),
-                            backgroundImage: _profileImage != null
-                                ? FileImage(_profileImage!)
+                            backgroundImage: _base64Image != null
+                                ? MemoryImage(base64Decode(_base64Image!))
                                 : null,
-                            child: _profileImage == null
+                            child: _base64Image == null
                                 ? const Icon(Icons.person, size: 56, color: Color(0xFFE8B84B))
                                 : null,
                           ),
@@ -432,25 +442,54 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
 
     if (source == null) return;
+
     final picked = await picker.pickImage(source: source, imageQuality: 85);
     if (picked != null) {
-      setState(() => _profileImage = File(picked.path));
+      final bytes = await picked.readAsBytes();
+      setState(() {
+        _base64Image = base64Encode(bytes);
+      });
     }
   }
 
-  void _save() {
+  // SÜREÇ ANALİZİ: Çift dikiş kalıcı hafıza mühürlemesi
+  Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
-    Navigator.pop(context, {
-      "name": nameController.text.trim(),
-      "email": emailController.text.trim(),
-      "phone": phoneController.text.trim(),
-      "title": titleController.text.trim(),
-      "department": departmentController.text.trim(),
-      "employeeId": employeeIdController.text.trim(),
-      "certLevel": _selectedCertLevel,
-      "experience": experienceController.text.trim(),
-      "profileImage": _profileImage,
-    });
+    final String finalName = nameController.text.trim();
+    final String finalEmail = emailController.text.trim();
+    final String finalPhone = phoneController.text.trim();
+    final String finalTitle = titleController.text.trim();
+    final String finalDept = departmentController.text.trim();
+    final String finalEmpId = employeeIdController.text.trim();
+    final String finalExp = experienceController.text.trim();
+
+    // Verileri doğrudan bu ekrandayken de şifreli hafızaya taahhüt ediyoruz
+    await _storage.write(key: "user_name", value: finalName);
+    await _storage.write(key: "user_email", value: finalEmail);
+    await _storage.write(key: "user_phone", value: finalPhone);
+    await _storage.write(key: "user_title", value: finalTitle);
+    await _storage.write(key: "user_dept", value: finalDept);
+    await _storage.write(key: "user_emp_id", value: finalEmpId);
+    await _storage.write(key: "user_cert", value: _selectedCertLevel);
+    await _storage.write(key: "user_exp", value: finalExp);
+    if (_base64Image != null) {
+      await _storage.write(key: "user_image_base64", value: _base64Image);
+    }
+
+    // ProfilPage'e haritayı pasla
+    if (mounted) {
+      Navigator.pop(context, {
+        "name": finalName,
+        "email": finalEmail,
+        "phone": finalPhone,
+        "title": finalTitle,
+        "department": finalDept,
+        "employeeId": finalEmpId,
+        "certLevel": _selectedCertLevel,
+        "experience": finalExp,
+        "profileImageBase64": _base64Image,
+      });
+    }
   }
 }

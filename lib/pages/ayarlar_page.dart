@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../services/biometric_service.dart';
+import '../screens/security/change_pin_screen.dart';
 
 class AyarlarPage extends StatefulWidget {
   const AyarlarPage({super.key});
@@ -8,7 +10,8 @@ class AyarlarPage extends StatefulWidget {
 }
 
 class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStateMixin {
-  // Toggle states
+  final BiometricService _bio = BiometricService();
+
   bool bildirimler = true;
   bool sesliUyari = false;
   bool titresim = true;
@@ -16,6 +19,7 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
   bool darkMode = true;
   bool biyometrik = false;
   bool konum = true;
+  bool _biyometrikMevcut = false;
 
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
@@ -32,6 +36,46 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
     _slideAnim = Tween<Offset>(begin: const Offset(0, 0.06), end: Offset.zero)
         .animate(CurvedAnimation(parent: _animController, curve: Curves.easeOut));
     _animController.forward();
+    _loadBiyometrik();
+  }
+
+  Future<void> _loadBiyometrik() async {
+    final destekleniyor = await _bio.isDeviceSupported();
+    final biyometrikler = await _bio.getAvailableBiometrics();
+    final etkin = await _bio.isBiometricEnabled();
+    if (!mounted) return;
+    setState(() {
+      _biyometrikMevcut = destekleniyor && biyometrikler.isNotEmpty;
+      biyometrik = etkin;
+    });
+  }
+
+  Future<void> _biyometrikDegistir(bool value) async {
+    if (value) {
+      final result = await _bio.authenticate(
+        reason: 'Biyometrik kilidi etkinleştirmek için doğrulayın',
+      );
+      if (result != BiometricResult.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF151C2E),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            content: const Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.redAccent, size: 18),
+                SizedBox(width: 10),
+                Text("Biyometrik doğrulama başarısız",
+                    style: TextStyle(color: Colors.white, fontSize: 13)),
+              ],
+            ),
+          ),
+        );
+        return;
+      }
+    }
+    await _bio.setBiometricEnabled(value);
+    setState(() => biyometrik = value);
   }
 
   @override
@@ -71,7 +115,6 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             children: [
 
-              // ── BİLDİRİM ────────────────────────────────────────────────
               _sectionLabel("Bildirim Ayarları", Icons.notifications_outlined),
               const SizedBox(height: 10),
 
@@ -111,7 +154,6 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
 
               const SizedBox(height: 22),
 
-              // ── GÜVENLİK ────────────────────────────────────────────────
               _sectionLabel("Güvenlik & Gizlilik", Icons.shield_outlined),
               const SizedBox(height: 10),
 
@@ -119,9 +161,11 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
                 _toggleTile(
                   icon: Icons.fingerprint_outlined,
                   title: "Biyometrik Kilit",
-                  subtitle: "Parmak izi veya yüz tanıma",
+                  subtitle: _biyometrikMevcut
+                      ? "Parmak izi veya yüz tanıma"
+                      : "Bu cihazda desteklenmiyor",
                   value: biyometrik,
-                  onChanged: (v) => setState(() => biyometrik = v),
+                  onChanged: _biyometrikMevcut ? _biyometrikDegistir : null,
                 ),
                 _divider(),
                 _toggleTile(
@@ -135,8 +179,15 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
                 _navTile(
                   icon: Icons.lock_reset_outlined,
                   title: "Şifre Değiştir",
-                  subtitle: "Hesap şifrenizi güncelleyin",
-                  onTap: () => _showComingSoon("Şifre Değiştir"),
+                  subtitle: "Uygulama PIN kodunuzu güncelleyin",
+                  onTap: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const ChangePinScreen()),
+                    );
+                    _loadBiyometrik();
+                  },
                 ),
                 _divider(),
                 _navTile(
@@ -150,7 +201,6 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
 
               const SizedBox(height: 22),
 
-              // ── GÖRÜNÜM ──────────────────────────────────────────────────
               _sectionLabel("Görünüm", Icons.palette_outlined),
               const SizedBox(height: 10),
 
@@ -173,7 +223,6 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
 
               const SizedBox(height: 22),
 
-              // ── UYGULAMA ─────────────────────────────────────────────────
               _sectionLabel("Uygulama", Icons.info_outline),
               const SizedBox(height: 10),
 
@@ -211,7 +260,6 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
 
               const SizedBox(height: 22),
 
-              // ── ÇIKIŞ ───────────────────────────────────────────────────
               _logoutButton(),
 
               const SizedBox(height: 32),
@@ -222,7 +270,6 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
     );
   }
 
-  // ── SECTION LABEL ─────────────────────────────────────────────────────────
   Widget _sectionLabel(String text, IconData icon) {
     return Row(
       children: [
@@ -248,7 +295,6 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
     );
   }
 
-  // ── SETTINGS CARD WRAPPER ─────────────────────────────────────────────────
   Widget _settingsCard(List<Widget> children) {
     return Container(
       decoration: BoxDecoration(
@@ -260,13 +306,12 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
     );
   }
 
-  // ── TOGGLE TILE ───────────────────────────────────────────────────────────
   Widget _toggleTile({
     required IconData icon,
     required String title,
     required String subtitle,
     required bool value,
-    required ValueChanged<bool> onChanged,
+    ValueChanged<bool>? onChanged,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -310,7 +355,6 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
     );
   }
 
-  // ── NAV TILE ──────────────────────────────────────────────────────────────
   Widget _navTile({
     required IconData icon,
     required String title,
@@ -383,7 +427,6 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
     );
   }
 
-  // ── DIVIDER ───────────────────────────────────────────────────────────────
   Widget _divider() {
     return Divider(
       height: 1,
@@ -393,7 +436,6 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
     );
   }
 
-  // ── LOGOUT BUTTON ─────────────────────────────────────────────────────────
   Widget _logoutButton() {
     return GestureDetector(
       onTap: _showLogoutDialog,
@@ -424,7 +466,6 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
     );
   }
 
-  // ── DIALOGS ───────────────────────────────────────────────────────────────
   void _showComingSoon(String feature) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -528,7 +569,6 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Logo
               Container(
                 width: 100,
                 height: 100,
@@ -538,13 +578,6 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
                     color: const Color(0xFFE8B84B).withOpacity(0.35),
                     width: 1.5,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFE8B84B).withOpacity(0.18),
-                      blurRadius: 24,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
@@ -559,34 +592,25 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
                   ),
                 ),
               ),
-
               const SizedBox(height: 18),
-
-              // Ana başlık
-              const Text(
-                "PEHLİVAN",
-                style: TextStyle(
-                  color: Color(0xFFE8B84B),
-                  fontWeight: FontWeight.w900,
-                  fontSize: 24,
-                  letterSpacing: 4,
-                ),
-              ),
+              const Text("PEHLİVAN",
+                  style: TextStyle(
+                    color: Color(0xFFE8B84B),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 24,
+                    letterSpacing: 4,
+                  )),
               const SizedBox(height: 5),
-              const Text(
-                "PROFESYONEL İSG\nYÖNETİM SİSTEMİ",
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  letterSpacing: 1.5,
-                  height: 1.5,
-                ),
-              ),
-
+              const Text("PROFESYONEL İSG\nYÖNETİM SİSTEMİ",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    letterSpacing: 1.5,
+                    height: 1.5,
+                  )),
               const SizedBox(height: 10),
-
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                 decoration: BoxDecoration(
@@ -594,42 +618,13 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: const Color(0xFFE8B84B).withOpacity(0.25)),
                 ),
-                child: const Text(
-                  "v1.0.0",
-                  style: TextStyle(
-                    color: Color(0xFFE8B84B),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                child: const Text("v1.0.0",
+                    style: TextStyle(
+                        color: Color(0xFFE8B84B),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600)),
               ),
-
-              const SizedBox(height: 14),
-
-              const Text(
-                "İş Sağlığı ve Güvenliği profesyonelleri için geliştirilmiş mobil yönetim platformu.",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white54, fontSize: 13, height: 1.6),
-              ),
-
               const SizedBox(height: 20),
-
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.04),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Text(
-                  "© 2026 Pehlivan ISG · Tüm hakları saklıdır.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white38, fontSize: 11),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(

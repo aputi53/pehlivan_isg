@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
-import 'services/biometric_service.dart';
-import 'screens/security/lock_screen.dart';
+// Proje adın pehlivan_isg olduğu için mutlak yollarla (package:) çağırmak her zaman en güvenli yoldur:
+import 'package:pehlivan_isg/screens/security/lock_screen.dart';
+
+// UYARI: Eğer biometric_service.dart dosyan tam olarak hangi klasördeyse
+// aşağıdaki yollardan uygun olanının önündeki yorum satırını kaldır, diğerini sil:
+// Eğer lib/utils/ veya lib/services/ altındaysa ona göre güncelle. Şimdilik lib/ altındaki varsayılan yola çektim:
+import 'package:pehlivan_isg/services/biometric_service.dart';
 
 /// Ana uygulama sarmalayıcı.
 /// Uygulama arka plandan döndüğünde (resume) otomatik kilit ekranı gösterir.
@@ -14,6 +19,7 @@ class AppLockWrapper extends StatefulWidget {
 
 class _AppLockWrapperState extends State<AppLockWrapper>
     with WidgetsBindingObserver {
+  // Yukarıdaki import doğru olunca buradaki hatalar kendiliğinden çözülecek
   final BiometricService _bio = BiometricService();
 
   bool _locked = false;

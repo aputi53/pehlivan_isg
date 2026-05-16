@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
-import '../services/biometric_service.dart';
+// ÇÖZÜM: Yanlış göreceli yol yerine mutlak package yolu tanımlandı.
+import 'package:pehlivan_isg/services/biometric_service.dart';
 
 /// Uygulama açılırken gösterilen kilit ekranı.
 /// Biyometrik (parmak izi / yüz) ile ya da PIN ile açılır.
@@ -64,25 +65,20 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    switch (result) {
-      case BiometricResult.success:
-        widget.onUnlocked();
-        break;
-      case BiometricResult.failed:
-        setState(() => _statusMessage = 'Doğrulama başarısız. PIN ile deneyin.');
-        _showPinPad();
-        break;
-      case BiometricResult.notAvailable:
-        _showPinPad();
-        break;
-      case BiometricResult.notEnrolled:
-        setState(() => _statusMessage = 'Biyometri kayıtlı değil. PIN girin.');
-        _showPinPad();
-        break;
-      case BiometricResult.lockedOut:
-        setState(() => _statusMessage = 'Çok fazla hatalı deneme. PIN ile girin.');
-        _showPinPad();
-        break;
+    // ÇÖZÜM: 'const' ifadeleri switch-case bloklarında enum yapılarıyla çakışmaması için kaldırıldı.
+    if (result == BiometricResult.success) {
+      widget.onUnlocked();
+    } else if (result == BiometricResult.failed) {
+      setState(() => _statusMessage = 'Doğrulama başarısız. PIN ile deneyin.');
+      _showPinPad();
+    } else if (result == BiometricResult.notAvailable) {
+      _showPinPad();
+    } else if (result == BiometricResult.notEnrolled) {
+      setState(() => _statusMessage = 'Biyometri kayıtlı değil. PIN girin.');
+      _showPinPad();
+    } else if (result == BiometricResult.lockedOut) {
+      setState(() => _statusMessage = 'Çok fazla hatalı deneme. PIN ile girin.');
+      _showPinPad();
     }
   }
 
@@ -253,14 +249,14 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
               color: _pinError
                   ? const Color(0xFFf85149)
                   : filled
-                      ? const Color(0xFF58a6ff)
-                      : Colors.transparent,
+                  ? const Color(0xFF58a6ff)
+                  : Colors.transparent,
               border: Border.all(
                 color: _pinError
                     ? const Color(0xFFf85149)
                     : filled
-                        ? const Color(0xFF58a6ff)
-                        : const Color(0xFF30363d),
+                    ? const Color(0xFF58a6ff)
+                    : const Color(0xFF30363d),
                 width: 1.5,
               ),
             ),
@@ -275,13 +271,13 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
       duration: const Duration(milliseconds: 200),
       child: _statusMessage.isNotEmpty
           ? Text(
-              _statusMessage,
-              key: ValueKey(_statusMessage),
-              style: TextStyle(
-                color: _pinError ? const Color(0xFFf85149) : const Color(0xFF8b949e),
-                fontSize: 13,
-              ),
-            )
+        _statusMessage,
+        key: ValueKey(_statusMessage),
+        style: TextStyle(
+          color: _pinError ? const Color(0xFFf85149) : const Color(0xFF8b949e),
+          fontSize: 13,
+        ),
+      )
           : const SizedBox(height: 18),
     );
   }
@@ -328,9 +324,6 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
   }
 }
 
-// -------------------------------------------------------
-// Sayı tuşu widget'ı
-// -------------------------------------------------------
 class _NumKey extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
@@ -348,13 +341,13 @@ class _NumKey extends StatelessWidget {
         child: isDel
             ? const Icon(Icons.backspace_outlined, color: Color(0xFF8b949e), size: 22)
             : Text(
-                label,
-                style: const TextStyle(
-                  color: Color(0xFFe6edf3),
-                  fontSize: 24,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
+          label,
+          style: const TextStyle(
+            color: Color(0xFFe6edf3),
+            fontSize: 24,
+            fontWeight: FontWeight.w400,
+          ),
+        ),
       ),
     );
   }

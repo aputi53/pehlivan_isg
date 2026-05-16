@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-
-import 'screens/home_screen.dart';
-import 'app_lock_wrapper.dart'; // YENİ SATIR
+import 'package:pehlivan_isg/screens/home_screen.dart';
+import 'package:pehlivan_isg/screens/security/app_lock_wrapper.dart';
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized(); // YENİ SATIR
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const PehlivanISGApp());
 }
 
@@ -22,15 +21,13 @@ class PehlivanISGApp extends StatelessWidget {
           elevation: 0,
         ),
       ),
-      home: AppLockWrapper(       // YENİ SATIR
-        child: const AnaEkran(), // ESKİDEN SADECE BU VARDI
-      ),                          // YENİ SATIR
+      home: AppLockWrapper(
+        // ÇÖZÜM: 'const' kelimesini buradan kaldırdık, çünkü AnaEkran dinamik veriler içerebilir.
+        child: AnaEkran(),
+      ),
     );
   }
 }
-
-
-
 
 /* ====================================================
    NOT MODELİ

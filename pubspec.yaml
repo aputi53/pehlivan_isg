@@ -15,6 +15,10 @@ dependencies:
   image_picker: ^1.1.2
   url_launcher: ^6.3.0
 
+  # --- GÜVENLİK PAKETLERİ ---
+  local_auth: ^2.3.0
+  flutter_secure_storage: ^9.2.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -22,7 +26,7 @@ dev_dependencies:
   flutter_lints: ^6.0.0
 
   flutter_launcher_icons: ^0.13.1
-  flutter_native_splash: ^2.4.0  # BU SATIRI EKLEMELİSİNİZ
+  flutter_native_splash: ^2.4.0
 
 # ---------------------------------------------------------
 # FLUTTER AYARLARI VE ASSET TANIMLAMALARI
@@ -41,8 +45,6 @@ flutter_launcher_icons:
   ios: false
   image_path: "assets/yeni_ikon.png"
   adaptive_icon_background: "#0d1117"
-  # Eğer logonuz çok küçük kalıyorsa, PNG dosyanızın içindeki
-  # boşlukları azaltıp şu komutu tekrar çalıştırın:
   adaptive_icon_foreground: "assets/yeni_ikon.png"
 
 flutter_native_splash:
@@ -54,4 +56,3 @@ flutter_native_splash:
   android_12:
     image: assets/splash_logo.png
     color: "#0d1117"
-    # BURADA BAŞKA HİÇBİR SATIR (image_fraction vb.) OLMASIN

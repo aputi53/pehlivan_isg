@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import 'screens/home_screen.dart';
+import 'app_lock_wrapper.dart'; // YENİ SATIR
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized(); // YENİ SATIR
   runApp(const PehlivanISGApp());
 }
 
@@ -20,7 +22,9 @@ class PehlivanISGApp extends StatelessWidget {
           elevation: 0,
         ),
       ),
-      home: const AnaEkran(),
+      home: AppLockWrapper(       // YENİ SATIR
+        child: const AnaEkran(), // ESKİDEN SADECE BU VARDI
+      ),                          // YENİ SATIR
     );
   }
 }
@@ -42,4 +46,3 @@ class FirmaNot {
     required this.fotoPaths,
   });
 }
-

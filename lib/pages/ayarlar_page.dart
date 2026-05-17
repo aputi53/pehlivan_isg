@@ -1,6 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../services/biometric_service.dart';
 import '../screens/security/change_pin_screen.dart';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TEMA YÖNETİCİSİ  (main.dart'taki MaterialApp'e bağlanır)
+// ─────────────────────────────────────────────────────────────────────────────
+class ThemeNotifier extends ValueNotifier<ThemeMode> {
+  ThemeNotifier() : super(ThemeMode.dark);
+}
+
+final themeNotifier = ThemeNotifier();
 
 class AyarlarPage extends StatefulWidget {
   const AyarlarPage({super.key});
@@ -9,16 +19,18 @@ class AyarlarPage extends StatefulWidget {
   State<AyarlarPage> createState() => _AyarlarPageState();
 }
 
-class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStateMixin {
+class _AyarlarPageState extends State<AyarlarPage>
+    with SingleTickerProviderStateMixin {
   final BiometricService _bio = BiometricService();
 
+  // ── Toggle state'leri ────────────────────────────────────────────────────
   bool bildirimler = true;
-  bool sesliUyari = false;
+  bool bildirimSesi = true;
   bool titresim = true;
   bool otomatikRapor = true;
-  bool darkMode = true;
+  bool darkMode = false;
   bool biyometrik = false;
-  bool konum = true;
+  bool konum = false;
   bool _biyometrikMevcut = false;
 
   late AnimationController _animController;
@@ -29,12 +41,12 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
   void initState() {
     super.initState();
     _animController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    );
-    _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
-    _slideAnim = Tween<Offset>(begin: const Offset(0, 0.06), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _animController, curve: Curves.easeOut));
+        vsync: this, duration: const Duration(milliseconds: 800));
+    _fadeAnim =
+        CurvedAnimation(parent: _animController, curve: Curves.easeOut);
+    _slideAnim =
+        Tween<Offset>(begin: const Offset(0, 0.06), end: Offset.zero).animate(
+            CurvedAnimation(parent: _animController, curve: Curves.easeOut));
     _animController.forward();
     _loadBiyometrik();
   }
@@ -53,29 +65,50 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
   Future<void> _biyometrikDegistir(bool value) async {
     if (value) {
       final result = await _bio.authenticate(
-        reason: 'Biyometrik kilidi etkinleştirmek için doğrulayın',
-      );
+          reason: 'Biyometrik kilidi etkinleştirmek için doğrulayın');
       if (result != BiometricResult.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: const Color(0xFF151C2E),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            content: const Row(
-              children: [
-                Icon(Icons.error_outline, color: Colors.redAccent, size: 18),
-                SizedBox(width: 10),
-                Text("Biyometrik doğrulama başarısız",
-                    style: TextStyle(color: Colors.white, fontSize: 13)),
-              ],
-            ),
-          ),
-        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(_snack(
+          'Biyometrik doğrulama başarısız',
+          Icons.error_outline,
+          Colors.redAccent,
+        ));
         return;
       }
     }
     await _bio.setBiometricEnabled(value);
     setState(() => biyometrik = value);
+  }
+
+  // ── Konum izni ───────────────────────────────────────────────────────────
+  Future<void> _konumDegistir(bool value) async {
+    if (value) {
+      // Android sistem izin diyaloğunu açar
+      const channel = MethodChannel('com.pehlivanisg.pehlivan_isg/location');
+      try {
+        final granted =
+            await channel.invokeMethod<bool>('requestPermission') ?? false;
+        setState(() => konum = granted);
+        if (!granted && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(_snack(
+            'Konum izni verilmedi',
+            Icons.location_off_outlined,
+            Colors.orange,
+          ));
+        }
+      } catch (_) {
+        // Kanal henüz implement edilmemişse sadece state değiştir
+        setState(() => konum = value);
+      }
+    } else {
+      setState(() => konum = false);
+    }
+  }
+
+  // ── Karanlık mod ─────────────────────────────────────────────────────────
+  void _darkModeDegistir(bool value) {
+    setState(() => darkMode = value);
+    themeNotifier.value = value ? ThemeMode.dark : ThemeMode.light;
   }
 
   @override
@@ -84,6 +117,9 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
     super.dispose();
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // BUILD
+  // ─────────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -93,16 +129,16 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
         elevation: 0,
         centerTitle: true,
         title: const Text(
-          "AYARLAR",
+          'AYARLAR',
           style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 4,
-            color: Color(0xFFE8B84B),
-          ),
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 4,
+              color: Color(0xFFE8B84B)),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: Colors.white54),
+          icon: const Icon(Icons.arrow_back_ios_new,
+              size: 18, color: Colors.white54),
           onPressed: () => Navigator.maybePop(context),
         ),
       ),
@@ -112,41 +148,46 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
           position: _slideAnim,
           child: ListView(
             physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             children: [
-
-              _sectionLabel("Bildirim Ayarları", Icons.notifications_outlined),
+              // ── BİLDİRİMLER ─────────────────────────────────────────────
+              _sectionLabel('Bildirim Ayarları',
+                  Icons.notifications_outlined),
               const SizedBox(height: 10),
-
               _settingsCard([
                 _toggleTile(
                   icon: Icons.notifications_active_outlined,
-                  title: "Bildirimler",
-                  subtitle: "Tüm sistem bildirimlerini aç/kapat",
+                  title: 'Bildirimler',
+                  subtitle: 'Tüm sistem bildirimlerini aç/kapat',
                   value: bildirimler,
                   onChanged: (v) => setState(() => bildirimler = v),
                 ),
                 _divider(),
                 _toggleTile(
-                  icon: Icons.volume_up_outlined,
-                  title: "Sesli Uyarı",
-                  subtitle: "Acil durum sesli alarmları",
-                  value: sesliUyari,
-                  onChanged: (v) => setState(() => sesliUyari = v),
+                  icon: Icons.music_note_outlined,
+                  title: 'Bildirim Sesi',
+                  subtitle: bildirimSesi ? 'Açık' : 'Sessiz',
+                  value: bildirimSesi,
+                  onChanged: bildirimler
+                      ? (v) => setState(() => bildirimSesi = v)
+                      : null,
                 ),
                 _divider(),
                 _toggleTile(
                   icon: Icons.vibration_outlined,
-                  title: "Titreşim",
-                  subtitle: "Bildirim titreşimi",
+                  title: 'Titreşim',
+                  subtitle: 'Bildirim titreşimi',
                   value: titresim,
-                  onChanged: (v) => setState(() => titresim = v),
+                  onChanged: bildirimler
+                      ? (v) => setState(() => titresim = v)
+                      : null,
                 ),
                 _divider(),
                 _toggleTile(
                   icon: Icons.summarize_outlined,
-                  title: "Otomatik Rapor",
-                  subtitle: "Günlük ISG raporu bildirimi",
+                  title: 'Otomatik Rapor',
+                  subtitle: 'Günlük ISG raporu bildirimi',
                   value: otomatikRapor,
                   onChanged: (v) => setState(() => otomatikRapor = v),
                 ),
@@ -154,106 +195,101 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
 
               const SizedBox(height: 22),
 
-              _sectionLabel("Güvenlik & Gizlilik", Icons.shield_outlined),
+              // ── GÜVENLİK ────────────────────────────────────────────────
+              _sectionLabel('Güvenlik & Gizlilik', Icons.shield_outlined),
               const SizedBox(height: 10),
-
               _settingsCard([
                 _toggleTile(
                   icon: Icons.fingerprint_outlined,
-                  title: "Biyometrik Kilit",
+                  title: 'Biyometrik Kilit',
                   subtitle: _biyometrikMevcut
-                      ? "Parmak izi veya yüz tanıma"
-                      : "Bu cihazda desteklenmiyor",
+                      ? 'Parmak izi veya yüz tanıma'
+                      : 'Bu cihazda desteklenmiyor',
                   value: biyometrik,
-                  onChanged: _biyometrikMevcut ? _biyometrikDegistir : null,
+                  onChanged:
+                  _biyometrikMevcut ? _biyometrikDegistir : null,
                 ),
                 _divider(),
                 _toggleTile(
                   icon: Icons.location_on_outlined,
-                  title: "Konum Erişimi",
-                  subtitle: "Saha takibi için konum izni",
+                  title: 'Konum Erişimi',
+                  subtitle: konum
+                      ? 'Saha takibi etkin'
+                      : 'Saha takibi için izin verin',
                   value: konum,
-                  onChanged: (v) => setState(() => konum = v),
+                  onChanged: _konumDegistir,
                 ),
                 _divider(),
                 _navTile(
                   icon: Icons.lock_reset_outlined,
-                  title: "Şifre Değiştir",
-                  subtitle: "Uygulama PIN kodunuzu güncelleyin",
+                  title: 'Şifre Değiştir',
+                  subtitle: 'Uygulama PIN kodunuzu güncelleyin',
                   onTap: () async {
                     await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const ChangePinScreen()),
-                    );
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const ChangePinScreen()));
                     _loadBiyometrik();
                   },
                 ),
                 _divider(),
                 _navTile(
                   icon: Icons.admin_panel_settings_outlined,
-                  title: "İki Faktörlü Doğrulama",
-                  subtitle: "Hesap güvenliğini artırın",
-                  onTap: () => _showComingSoon("2FA"),
-                  badge: "ÖNERİLİR",
+                  title: 'İki Faktörlü Doğrulama',
+                  subtitle: 'Hesap güvenliğini artırın',
+                  onTap: () => _showComingSoon('2FA'),
+                  badge: 'ÖNERİLİR',
                 ),
               ]),
 
               const SizedBox(height: 22),
 
-              _sectionLabel("Görünüm", Icons.palette_outlined),
+              // ── GÖRÜNÜM ──────────────────────────────────────────────────
+              _sectionLabel('Görünüm', Icons.palette_outlined),
               const SizedBox(height: 10),
-
               _settingsCard([
                 _toggleTile(
                   icon: Icons.dark_mode_outlined,
-                  title: "Karanlık Mod",
-                  subtitle: "Koyu tema kullan",
-                  value: darkMode,
-                  onChanged: (v) => setState(() => darkMode = v),
-                ),
-                _divider(),
-                _navTile(
-                  icon: Icons.language_outlined,
-                  title: "Dil",
-                  subtitle: "Türkçe",
-                  onTap: () => _showComingSoon("Dil"),
+                  title: 'Karanlık Mod',
+                  subtitle: 'Yakında aktif olacak',
+                  value: true,
+                  onChanged: null,
                 ),
               ]),
 
               const SizedBox(height: 22),
 
-              _sectionLabel("Uygulama", Icons.info_outline),
+              // ── UYGULAMA ─────────────────────────────────────────────────
+              _sectionLabel('Uygulama', Icons.info_outline),
               const SizedBox(height: 10),
-
               _settingsCard([
                 _navTile(
                   icon: Icons.help_outline,
-                  title: "Yardım & Destek",
-                  subtitle: "SSS ve iletişim",
-                  onTap: () => _showComingSoon("Yardım"),
+                  title: 'Yardım & Destek',
+                  subtitle: 'SSS ve iletişim',
+                  onTap: _showDestek,
                 ),
                 _divider(),
                 _navTile(
                   icon: Icons.policy_outlined,
-                  title: "Gizlilik Politikası",
-                  subtitle: "Veri kullanım koşulları",
-                  onTap: () => _showComingSoon("Gizlilik"),
+                  title: 'Gizlilik Politikası',
+                  subtitle: 'Veri kullanım koşulları',
+                  onTap: _showGizlilik,
                 ),
                 _divider(),
                 _navTile(
                   icon: Icons.system_update_outlined,
-                  title: "Güncellemeler",
-                  subtitle: "Mevcut sürüm: v1.0.0",
-                  onTap: () => _showComingSoon("Güncelleme"),
-                  badge: "GÜNCEL",
+                  title: 'Güncellemeler',
+                  subtitle: 'Mevcut sürüm: v1.0.0',
+                  onTap: () => _showComingSoon('Güncelleme kontrolü'),
+                  badge: 'GÜNCEL',
                   badgeColor: const Color(0xFF4ADE80),
                 ),
                 _divider(),
                 _navTile(
                   icon: Icons.info_outline,
-                  title: "Uygulama Hakkında",
-                  subtitle: "ISG Uzman Pro · © 2024",
+                  title: 'Uygulama Hakkında',
+                  subtitle: 'Pehlivan İSG · © 2026',
                   onTap: _showAbout,
                 ),
               ]),
@@ -261,7 +297,6 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
               const SizedBox(height: 22),
 
               _logoutButton(),
-
               const SizedBox(height: 32),
             ],
           ),
@@ -269,6 +304,10 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
       ),
     );
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // YARDIMCI WIDGET'LAR
+  // ─────────────────────────────────────────────────────────────────────────
 
   Widget _sectionLabel(String text, IconData icon) {
     return Row(
@@ -282,15 +321,12 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
           child: Icon(icon, color: const Color(0xFFE8B84B), size: 14),
         ),
         const SizedBox(width: 10),
-        Text(
-          text.toUpperCase(),
-          style: const TextStyle(
-            color: Colors.white54,
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 2.5,
-          ),
-        ),
+        Text(text.toUpperCase(),
+            style: const TextStyle(
+                color: Colors.white54,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 2.5)),
       ],
     );
   }
@@ -313,6 +349,7 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
     required bool value,
     ValueChanged<bool>? onChanged,
   }) {
+    final disabled = onChanged == null;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
@@ -320,10 +357,15 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFFE8B84B).withOpacity(0.10),
+              color: const Color(0xFFE8B84B)
+                  .withOpacity(disabled ? 0.04 : 0.10),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: const Color(0xFFE8B84B), size: 18),
+            child: Icon(icon,
+                color: disabled
+                    ? Colors.white24
+                    : const Color(0xFFE8B84B),
+                size: 18),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -331,11 +373,14 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title,
-                    style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
+                    style: TextStyle(
+                        color: disabled ? Colors.white24 : Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14)),
                 const SizedBox(height: 2),
                 Text(subtitle,
-                    style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                    style: const TextStyle(
+                        color: Colors.white38, fontSize: 12)),
               ],
             ),
           ),
@@ -345,7 +390,8 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
               value: value,
               onChanged: onChanged,
               activeColor: const Color(0xFFE8B84B),
-              activeTrackColor: const Color(0xFFE8B84B).withOpacity(0.25),
+              activeTrackColor:
+              const Color(0xFFE8B84B).withOpacity(0.25),
               inactiveThumbColor: Colors.white24,
               inactiveTrackColor: Colors.white10,
             ),
@@ -393,30 +439,32 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
                       if (badge != null) ...[
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 7, vertical: 2),
                           decoration: BoxDecoration(
-                            color: (badgeColor ?? const Color(0xFFE8B84B)).withOpacity(0.15),
+                            color: (badgeColor ?? const Color(0xFFE8B84B))
+                                .withOpacity(0.15),
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
-                              color: (badgeColor ?? const Color(0xFFE8B84B)).withOpacity(0.4),
-                            ),
+                                color: (badgeColor ??
+                                    const Color(0xFFE8B84B))
+                                    .withOpacity(0.4)),
                           ),
-                          child: Text(
-                            badge,
-                            style: TextStyle(
-                              color: badgeColor ?? const Color(0xFFE8B84B),
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.8,
-                            ),
-                          ),
+                          child: Text(badge,
+                              style: TextStyle(
+                                  color: badgeColor ??
+                                      const Color(0xFFE8B84B),
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.8)),
                         ),
                       ]
                     ],
                   ),
                   const SizedBox(height: 2),
                   Text(subtitle,
-                      style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                      style: const TextStyle(
+                          color: Colors.white38, fontSize: 12)),
                 ],
               ),
             ),
@@ -427,14 +475,11 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
     );
   }
 
-  Widget _divider() {
-    return Divider(
+  Widget _divider() => Divider(
       height: 1,
       color: Colors.white.withOpacity(0.05),
       indent: 56,
-      endIndent: 16,
-    );
-  }
+      endIndent: 16);
 
   Widget _logoutButton() {
     return GestureDetector(
@@ -451,13 +496,88 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
           children: [
             Icon(Icons.logout_outlined, color: Colors.redAccent, size: 18),
             SizedBox(width: 10),
-            Text(
-              "Çıkış Yap",
-              style: TextStyle(
-                color: Colors.redAccent,
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-                letterSpacing: 0.5,
+            Text('Çıkış Yap',
+                style: TextStyle(
+                    color: Colors.redAccent,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    letterSpacing: 0.5)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // DIALOGLAR
+  // ─────────────────────────────────────────────────────────────────────────
+
+  SnackBar _snack(String msg, IconData icon, Color color) {
+    return SnackBar(
+      backgroundColor: const Color(0xFF151C2E),
+      behavior: SnackBarBehavior.floating,
+      shape:
+      RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      content: Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 10),
+          Text(msg,
+              style:
+              const TextStyle(color: Colors.white, fontSize: 13)),
+        ],
+      ),
+    );
+  }
+
+  void _showComingSoon(String feature) {
+    ScaffoldMessenger.of(context).showSnackBar(_snack(
+      '$feature yakında aktif olacak',
+      Icons.info_outline,
+      const Color(0xFFE8B84B),
+    ));
+  }
+
+  void _showLogoutDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => _dialog(
+        icon: Icons.logout_outlined,
+        iconColor: Colors.redAccent,
+        title: 'Çıkış Yap',
+        body: 'Hesabınızdan çıkış yapmak istediğinizden emin misiniz?',
+        actions: Row(
+          children: [
+            Expanded(
+              child: TextButton(
+                onPressed: () => Navigator.pop(context),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(
+                          color: Colors.white.withOpacity(0.1))),
+                ),
+                child: const Text('İptal',
+                    style: TextStyle(
+                        color: Colors.white54,
+                        fontWeight: FontWeight.w600)),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                child: const Text('Çıkış Yap',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
               ),
             ),
           ],
@@ -466,104 +586,129 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
     );
   }
 
-  void _showComingSoon(String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: const Color(0xFF151C2E),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        content: Row(
+  void _showDestek() {
+    showDialog(
+      context: context,
+      builder: (_) => _dialog(
+        icon: Icons.support_agent_outlined,
+        iconColor: const Color(0xFFE8B84B),
+        title: 'Yardım & Destek',
+        body: null,
+        content: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.info_outline, color: Color(0xFFE8B84B), size: 18),
-            const SizedBox(width: 10),
-            Text("$feature yakında aktif olacak",
-                style: const TextStyle(color: Colors.white, fontSize: 13)),
+            _destekSatir(Icons.email_outlined, 'E-posta',
+                'destek@pehlivanisg.com'),
+            const SizedBox(height: 12),
+            _destekSatir(Icons.phone_outlined, 'Telefon',
+                '+90 (XXX) XXX XX XX'),
+            const SizedBox(height: 12),
+            _destekSatir(Icons.access_time_outlined, 'Çalışma Saatleri',
+                'Pzt – Cum, 09:00 – 18:00'),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8B84B).withOpacity(0.07),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                    color: const Color(0xFFE8B84B).withOpacity(0.2)),
+              ),
+              child: const Text(
+                'Uygulama ile ilgili sorun yaşıyorsanız yukarıdaki kanallardan bize ulaşabilirsiniz.',
+                style: TextStyle(
+                    color: Colors.white54, fontSize: 12, height: 1.6),
+              ),
+            ),
           ],
         ),
+        actions: _kapatButon(),
       ),
     );
   }
 
-  void _showLogoutDialog() {
+  Widget _destekSatir(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, color: const Color(0xFFE8B84B), size: 16),
+        const SizedBox(width: 10),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label,
+                style: const TextStyle(
+                    color: Colors.white38, fontSize: 11)),
+            Text(value,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  void _showGizlilik() {
     showDialog(
       context: context,
-      builder: (_) => Dialog(
-        backgroundColor: const Color(0xFF151C2E),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
+      builder: (_) => _dialog(
+        icon: Icons.policy_outlined,
+        iconColor: const Color(0xFFE8B84B),
+        title: 'Gizlilik Politikası',
+        body: null,
+        content: SingleChildScrollView(
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.redAccent.withOpacity(0.10),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.logout_outlined,
-                    color: Colors.redAccent, size: 32),
-              ),
-              const SizedBox(height: 16),
-              const Text("Çıkış Yap",
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 18)),
-              const SizedBox(height: 8),
-              const Text(
-                "Hesabınızdan çıkış yapmak istediğinizden emin misiniz?",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white54, fontSize: 13, height: 1.5),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(color: Colors.white.withOpacity(0.1)),
-                        ),
-                      ),
-                      child: const Text("İptal",
-                          style: TextStyle(color: Colors.white54, fontWeight: FontWeight.w600)),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.redAccent,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                        elevation: 0,
-                      ),
-                      child: const Text("Çıkış Yap",
-                          style: TextStyle(fontWeight: FontWeight.w700)),
-                    ),
-                  ),
-                ],
-              ),
+              _gizlilikBaslik('Veri Toplama'),
+              _gizlilikMetin(
+                  'Pehlivan İSG uygulaması yalnızca ISG denetim süreçleri için gerekli verileri toplar.'),
+              const SizedBox(height: 12),
+              _gizlilikBaslik('Veri Depolama'),
+              _gizlilikMetin(
+                  'Tüm verileriniz cihazınızda şifreli olarak saklanır. Sunucuya aktarım yalnızca sizin onayınızla gerçekleşir.'),
+              const SizedBox(height: 12),
+              _gizlilikBaslik('Biyometrik Veriler'),
+              _gizlilikMetin(
+                  'Parmak izi ve yüz tanıma verileri yalnızca cihazınızın güvenli donanımında işlenir, uygulamamız bu verilere erişemez.'),
+              const SizedBox(height: 12),
+              _gizlilikBaslik('Konum Verisi'),
+              _gizlilikMetin(
+                  'Konum erişimi yalnızca saha denetim kayıtları için kullanılır ve üçüncü taraflarla paylaşılmaz.'),
+              const SizedBox(height: 12),
+              _gizlilikBaslik('İletişim'),
+              _gizlilikMetin(
+                  'Gizlilik ile ilgili sorularınız için: gizlilik@pehlivanisg.com'),
             ],
           ),
         ),
+        actions: _kapatButon(),
       ),
     );
   }
+
+  Widget _gizlilikBaslik(String text) => Padding(
+    padding: const EdgeInsets.only(bottom: 4),
+    child: Text(text,
+        style: const TextStyle(
+            color: Color(0xFFE8B84B),
+            fontWeight: FontWeight.w700,
+            fontSize: 13)),
+  );
+
+  Widget _gizlilikMetin(String text) => Text(text,
+      style:
+      const TextStyle(color: Colors.white54, fontSize: 12, height: 1.6));
 
   void _showAbout() {
     showDialog(
       context: context,
       builder: (_) => Dialog(
         backgroundColor: const Color(0xFF151C2E),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape:
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Padding(
           padding: const EdgeInsets.all(28),
           child: Column(
@@ -575,54 +720,74 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(22),
                   border: Border.all(
-                    color: const Color(0xFFE8B84B).withOpacity(0.35),
-                    width: 1.5,
-                  ),
+                      color: const Color(0xFFE8B84B).withOpacity(0.35),
+                      width: 1.5),
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
-                  child: Image.asset(
-                    'assets/yeni_ikon.png',
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      color: const Color(0xFF0A0E1A),
-                      child: const Icon(Icons.health_and_safety,
-                          color: Color(0xFFE8B84B), size: 48),
-                    ),
-                  ),
+                  child: Image.asset('assets/yeni_ikon.png',
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: const Color(0xFF0A0E1A),
+                        child: const Icon(Icons.health_and_safety,
+                            color: Color(0xFFE8B84B), size: 48),
+                      )),
                 ),
               ),
               const SizedBox(height: 18),
-              const Text("PEHLİVAN",
+              const Text('PEHLİVAN',
                   style: TextStyle(
-                    color: Color(0xFFE8B84B),
-                    fontWeight: FontWeight.w900,
-                    fontSize: 24,
-                    letterSpacing: 4,
-                  )),
-              const SizedBox(height: 5),
-              const Text("PROFESYONEL İSG\nYÖNETİM SİSTEMİ",
+                      color: Color(0xFFE8B84B),
+                      fontWeight: FontWeight.w900,
+                      fontSize: 24,
+                      letterSpacing: 4)),
+              const SizedBox(height: 4),
+              const Text('PROFESYONEL İSG\nYÖNETİM SİSTEMİ',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                    letterSpacing: 1.5,
-                    height: 1.5,
-                  )),
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      letterSpacing: 1.5,
+                      height: 1.5)),
               const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 4),
                 decoration: BoxDecoration(
                   color: const Color(0xFFE8B84B).withOpacity(0.10),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFE8B84B).withOpacity(0.25)),
+                  border: Border.all(
+                      color: const Color(0xFFE8B84B).withOpacity(0.25)),
                 ),
-                child: const Text("v1.0.0",
+                child: const Text('v1.0.0',
                     style: TextStyle(
                         color: Color(0xFFE8B84B),
                         fontSize: 12,
                         fontWeight: FontWeight.w600)),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'İş Sağlığı ve Güvenliği profesyonelleri için geliştirilmiş mobil yönetim platformu.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    color: Colors.white54, fontSize: 13, height: 1.6),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.04),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                // ← 2026 + Pehlivan İSG
+                child: const Text(
+                  '© 2026 Pehlivan İSG · Tüm hakları saklıdır.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white38, fontSize: 11),
+                ),
               ),
               const SizedBox(height: 20),
               SizedBox(
@@ -637,13 +802,81 @@ class _AyarlarPageState extends State<AyarlarPage> with SingleTickerProviderStat
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: const Text("Kapat",
+                  child: const Text('Kapat',
                       style: TextStyle(fontWeight: FontWeight.w700)),
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // ── Genel dialog şablonu ──────────────────────────────────────────────────
+  Widget _dialog({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    String? body,
+    Widget? content,
+    required Widget actions,
+  }) {
+    return Dialog(
+      backgroundColor: const Color(0xFF151C2E),
+      shape:
+      RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: iconColor.withOpacity(0.10),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: iconColor, size: 28),
+            ),
+            const SizedBox(height: 14),
+            Text(title,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 17)),
+            const SizedBox(height: 10),
+            if (body != null)
+              Text(body,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 13,
+                      height: 1.5)),
+            if (content != null) content,
+            const SizedBox(height: 20),
+            actions,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _kapatButon() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: () => Navigator.pop(context),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFFE8B84B),
+          foregroundColor: const Color(0xFF0A0E1A),
+          shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+        ),
+        child:
+        const Text('Kapat', style: TextStyle(fontWeight: FontWeight.w700)),
       ),
     );
   }

@@ -179,23 +179,7 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
       ),
       child: Stack(
         children: [
-          Positioned(
-            top: 0,
-            right: 0,
-            child: Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                borderRadius: const BorderRadius.only(topRight: Radius.circular(24)),
-                gradient: LinearGradient(
-                  colors: [
-                    const Color(0xFFE8B84B).withOpacity(0.12),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
+          // Sağ üst köşedeki sarı parlamayı oluşturan Positioned bloğu buradan tamamen kaldırıldı.
           Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
@@ -456,7 +440,6 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
   }
 
   // ── ACTIONS ───────────────────────────────────────────────────────────────
-  // DEĞİŞİKLİK: Ana ekrandaki kamera ikonuna basınca da Base64 formatında kalıcı kaydetmesi sağlandı.
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final source = await showModalBottomSheet<ImageSource>(
@@ -524,7 +507,7 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
           employeeId: employeeId,
           certLevel: certLevel,
           experience: experience,
-          profileImageBase64: profileImageBase64, // DEĞİŞİKLİK
+          profileImageBase64: profileImageBase64,
         ),
       ),
     );

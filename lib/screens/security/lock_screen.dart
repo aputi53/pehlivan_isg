@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
-// ÇÖZÜM: Yanlış göreceli yol yerine mutlak package yolu tanımlandı.
-import 'package:pehlivan_isg/services/biometric_service.dart';
+import '../../services/biometric_service.dart';
 
-/// Uygulama açılırken gösterilen kilit ekranı.
-/// Biyometrik (parmak izi / yüz) ile ya da PIN ile açılır.
 class LockScreen extends StatefulWidget {
   final VoidCallback onUnlocked;
+
   const LockScreen({super.key, required this.onUnlocked});
 
   @override
   State<LockScreen> createState() => _LockScreenState();
 }
 
-class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateMixin {
+class _LockScreenState extends State<LockScreen>
+    with TickerProviderStateMixin {
   final BiometricService _bio = BiometricService();
+
   final List<String> _enteredPin = [];
   static const int _pinLength = 6;
 
@@ -24,199 +24,361 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
   bool _showPin = false;
   bool _pinError = false;
 
-  late AnimationController _shakeController;
-  late Animation<double> _shakeAnimation;
-
   List<BiometricType> _biometrics = [];
+
+  late AnimationController _shakeController;
+  late AnimationController _fadeController;
+  late AnimationController _pulseController;
+
+  late Animation<Offset> _shakeAnim;
+  late Animation<double> _fadeAnim;
+  late Animation<double> _pulseAnim;
 
   @override
   void initState() {
     super.initState();
+
     _shakeController = AnimationController(
-      duration: const Duration(milliseconds: 400),
       vsync: this,
+      duration: const Duration(milliseconds: 500),
     );
-    _shakeAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _shakeController, curve: Curves.elasticOut),
+
+    _shakeAnim = Tween<Offset>(
+      begin: Offset.zero,
+      end: const Offset(0.07, 0),
+    ).animate(
+      CurvedAnimation(
+        parent: _shakeController,
+        curve: Curves.elasticOut,
+      ),
     );
+
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+
+    _fadeAnim = CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeOut,
+    );
+
+    _fadeController.forward();
+
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1700),
+      lowerBound: 0.94,
+      upperBound: 1.0,
+    )..repeat(reverse: true);
+
+    _pulseAnim = _pulseController;
+
     _init();
   }
 
   @override
   void dispose() {
     _shakeController.dispose();
+    _fadeController.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
   Future<void> _init() async {
     _biometrics = await _bio.getAvailableBiometrics();
+
     final biometricEnabled = await _bio.isBiometricEnabled();
+
     if (biometricEnabled && _biometrics.isNotEmpty) {
-      await Future.delayed(const Duration(milliseconds: 600));
+      await Future.delayed(const Duration(milliseconds: 700));
       _authenticate();
     }
   }
 
   Future<void> _authenticate() async {
     setState(() => _isLoading = true);
+
     final result = await _bio.authenticate(
-      reason: 'Uygulamaya giriş yapmak için kimliğinizi doğrulayın',
+      reason: 'Pehlivan İSG uygulamasına giriş için doğrulayın',
     );
+
     if (!mounted) return;
+
     setState(() => _isLoading = false);
 
-    // ÇÖZÜM: 'const' ifadeleri switch-case bloklarında enum yapılarıyla çakışmaması için kaldırıldı.
-    if (result == BiometricResult.success) {
-      widget.onUnlocked();
-    } else if (result == BiometricResult.failed) {
-      setState(() => _statusMessage = 'Doğrulama başarısız. PIN ile deneyin.');
-      _showPinPad();
-    } else if (result == BiometricResult.notAvailable) {
-      _showPinPad();
-    } else if (result == BiometricResult.notEnrolled) {
-      setState(() => _statusMessage = 'Biyometri kayıtlı değil. PIN girin.');
-      _showPinPad();
-    } else if (result == BiometricResult.lockedOut) {
-      setState(() => _statusMessage = 'Çok fazla hatalı deneme. PIN ile girin.');
-      _showPinPad();
+    switch (result) {
+      case BiometricResult.success:
+        HapticFeedback.lightImpact();
+        widget.onUnlocked();
+        break;
+
+      case BiometricResult.failed:
+        setState(() {
+          _statusMessage = 'Doğrulama başarısız. PIN ile girin.';
+          _showPin = true;
+        });
+        break;
+
+      case BiometricResult.notAvailable:
+        setState(() => _showPin = true);
+        break;
+
+      case BiometricResult.notEnrolled:
+        setState(() {
+          _statusMessage = 'Biyometrik doğrulama kayıtlı değil.';
+          _showPin = true;
+        });
+        break;
+
+      case BiometricResult.lockedOut:
+        setState(() {
+          _statusMessage = 'Çok fazla deneme yapıldı. PIN girin.';
+          _showPin = true;
+        });
+        break;
     }
   }
 
-  void _showPinPad() => setState(() => _showPin = true);
-
   Future<void> _onPinDigit(String digit) async {
     if (_enteredPin.length >= _pinLength) return;
+
+    HapticFeedback.selectionClick();
+
     setState(() {
       _enteredPin.add(digit);
       _pinError = false;
+      _statusMessage = '';
     });
 
     if (_enteredPin.length == _pinLength) {
       await Future.delayed(const Duration(milliseconds: 120));
+
       final pin = _enteredPin.join();
+
       final correct = await _bio.verifyPin(pin);
+
       if (correct) {
+        HapticFeedback.lightImpact();
         widget.onUnlocked();
       } else {
+        HapticFeedback.heavyImpact();
+
         _shakeController.forward(from: 0);
+
         setState(() {
           _enteredPin.clear();
           _pinError = true;
           _statusMessage = 'Hatalı PIN. Tekrar deneyin.';
         });
-        HapticFeedback.heavyImpact();
       }
     }
   }
 
   void _onDelete() {
     if (_enteredPin.isEmpty) return;
+
+    HapticFeedback.selectionClick();
+
     setState(() {
       _enteredPin.removeLast();
       _pinError = false;
     });
   }
 
-  // -------------------------------------------------------
-  // BUILD
-  // -------------------------------------------------------
   @override
   Widget build(BuildContext context) {
+    final padding = MediaQuery.of(context).padding;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0d1117),
-      body: SafeArea(
-        child: Column(
+      backgroundColor: const Color(0xFF060913),
+      body: FadeTransition(
+        opacity: _fadeAnim,
+        child: Stack(
           children: [
-            const SizedBox(height: 60),
-            _buildHeader(),
-            const Spacer(),
-            if (_showPin) ...[
-              _buildPinDots(),
-              const SizedBox(height: 12),
-              _buildStatus(),
-              const SizedBox(height: 32),
-              _buildNumPad(),
-              const SizedBox(height: 24),
-              _buildBiometricFallback(),
-            ] else ...[
-              _buildBiometricPrompt(),
-            ],
-            const SizedBox(height: 48),
+            _buildBackground(),
+
+            SizedBox(
+              width: double.infinity,
+              height: double.infinity,
+              child: Column(
+                children: [
+                  // Logo ve altındaki metnin daha aşağıda durması için boşluk artırıldı
+                  SizedBox(height: padding.top + 70),
+
+                  _buildLogo(),
+
+                  const SizedBox(height: 20),
+
+                  Text(
+                    _showPin ? 'PIN KODUNUZU GİRİN' : 'GÜVENLİ GİRİŞ',
+                    style: TextStyle(
+                      color: const Color(0xFFE8B84B).withOpacity(0.45),
+                      fontSize: 11,
+                      letterSpacing: 5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+
+                  const Spacer(),
+
+                  if (_showPin) ...[
+                    _buildPinDots(),
+
+                    const SizedBox(height: 14),
+
+                    _buildStatusText(),
+
+                    const SizedBox(height: 36),
+
+                    _buildNumPad(),
+
+                    const SizedBox(height: 18),
+
+                    _buildBiometricFallback(),
+                  ] else ...[
+                    _buildBiometricPrompt(),
+                  ],
+
+                  SizedBox(height: padding.bottom + 42),
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeader() {
-    return Column(
-      children: [
-        Container(
-          width: 72,
-          height: 72,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: const Color(0xFF161b22),
-            border: Border.all(color: const Color(0xFF30363d), width: 1.5),
+  Widget _buildLogo() {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.94, end: 1),
+      duration: const Duration(milliseconds: 1400),
+      curve: Curves.easeOutExpo,
+      builder: (context, value, child) {
+        return Transform.scale(
+            scale: value,
+            child: child,
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Image.asset(
+          'assets/logo.png',
+          width: 280,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.high,
+          errorBuilder: (_, __, ___) => const Icon(
+            Icons.health_and_safety_outlined,
+            color: Color(0xFFE8B84B),
+            size: 120,
           ),
-          child: const Icon(Icons.lock_outline_rounded, color: Color(0xFF58a6ff), size: 32),
         ),
-        const SizedBox(height: 20),
-        const Text(
-          'Pehlivan İSG',
-          style: TextStyle(
-            color: Color(0xFFe6edf3),
-            fontSize: 22,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.5,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          _showPin ? 'PIN kodunuzu girin' : 'Devam etmek için kimliğinizi doğrulayın',
-          style: const TextStyle(color: Color(0xFF8b949e), fontSize: 14),
-        ),
-      ],
+      ),
     );
   }
 
   Widget _buildBiometricPrompt() {
+    final isFace = _biometrics.contains(BiometricType.face);
+
     return Column(
       children: [
-        if (_isLoading)
-          const CircularProgressIndicator(color: Color(0xFF58a6ff), strokeWidth: 2)
-        else
-          GestureDetector(
-            onTap: _authenticate,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 80,
-              height: 80,
+        GestureDetector(
+          onTap: _isLoading ? null : _authenticate,
+          child: ScaleTransition(
+            scale: _pulseAnim,
+            child: Container(
+              padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFF161b22),
-                border: Border.all(color: const Color(0xFF58a6ff), width: 1.5),
+                border: Border.all(
+                  color: const Color(0xFFE8B84B).withOpacity(0.18),
+                  width: 1,
+                ),
               ),
-              child: Icon(
-                _biometrics.contains(BiometricType.face)
-                    ? Icons.face_unlock_outlined
-                    : Icons.fingerprint_rounded,
-                color: const Color(0xFF58a6ff),
-                size: 36,
+              child: Container(
+                width: 78,
+                height: 78,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.03),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: _isLoading
+                        ? [
+                      const Color(0xFF1C2236),
+                      const Color(0xFF0F1420),
+                    ]
+                        : [
+                      const Color(0xFFE8B84B).withOpacity(0.18),
+                      const Color(0xFF121829),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: _isLoading
+                        ? Colors.white12
+                        : const Color(0xFFE8B84B).withOpacity(0.85),
+                    width: 1.4,
+                  ),
+                  boxShadow: _isLoading
+                      ? []
+                      : [
+                    BoxShadow(
+                      color:
+                      const Color(0xFFE8B84B).withOpacity(0.22),
+                      blurRadius: 26,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+                child: _isLoading
+                    ? const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: CircularProgressIndicator(
+                    color: Color(0xFFE8B84B),
+                    strokeWidth: 2,
+                  ),
+                )
+                    : Icon(
+                  isFace
+                      ? Icons.face_unlock_outlined
+                      : Icons.fingerprint_rounded,
+                  color: const Color(0xFFE8B84B),
+                  size: 34,
+                ),
               ),
             ),
           ),
-        const SizedBox(height: 16),
-        Text(
-          _biometrics.contains(BiometricType.face) ? 'Yüz Tanıma' : 'Parmak İzi',
-          style: const TextStyle(color: Color(0xFF8b949e), fontSize: 13),
         ),
-        const SizedBox(height: 24),
+
+        const SizedBox(height: 16),
+
+        Text(
+          _isLoading
+              ? 'Doğrulanıyor...'
+              : isFace
+              ? 'Yüz Tanıma ile Giriş'
+              : 'Parmak İzi ile Giriş',
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.3,
+          ),
+        ),
+
+        const SizedBox(height: 28),
+
         TextButton(
-          onPressed: _showPinPad,
+          onPressed: () => setState(() => _showPin = true),
           child: const Text(
             'PIN ile giriş yap',
-            style: TextStyle(color: Color(0xFF58a6ff), fontSize: 14),
+            style: TextStyle(
+              color: Color(0xFFE8B84B),
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],
@@ -224,23 +386,16 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
   }
 
   Widget _buildPinDots() {
-    return AnimatedBuilder(
-      animation: _shakeAnimation,
-      builder: (context, child) {
-        final offset = _pinError
-            ? 12 * (0.5 - (_shakeAnimation.value - 0.5).abs())
-            : 0.0;
-        return Transform.translate(
-          offset: Offset(offset * 8, 0),
-          child: child,
-        );
-      },
+    return SlideTransition(
+      position: _shakeAnim,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: List.generate(_pinLength, (i) {
           final filled = i < _enteredPin.length;
+
           return AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOut,
             margin: const EdgeInsets.symmetric(horizontal: 8),
             width: 14,
             height: 14,
@@ -249,16 +404,25 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
               color: _pinError
                   ? const Color(0xFFf85149)
                   : filled
-                  ? const Color(0xFF58a6ff)
+                  ? const Color(0xFFE8B84B)
                   : Colors.transparent,
               border: Border.all(
                 color: _pinError
                     ? const Color(0xFFf85149)
                     : filled
-                    ? const Color(0xFF58a6ff)
-                    : const Color(0xFF30363d),
+                    ? const Color(0xFFE8B84B)
+                    : Colors.white24,
                 width: 1.5,
               ),
+              boxShadow: filled && !_pinError
+                  ? [
+                BoxShadow(
+                  color:
+                  const Color(0xFFE8B84B).withOpacity(0.45),
+                  blurRadius: 8,
+                ),
+              ]
+                  : [],
             ),
           );
         }),
@@ -266,15 +430,18 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildStatus() {
+  Widget _buildStatusText() {
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 220),
       child: _statusMessage.isNotEmpty
           ? Text(
         _statusMessage,
         key: ValueKey(_statusMessage),
+        textAlign: TextAlign.center,
         style: TextStyle(
-          color: _pinError ? const Color(0xFFf85149) : const Color(0xFF8b949e),
+          color: _pinError
+              ? const Color(0xFFf85149)
+              : Colors.white38,
           fontSize: 13,
         ),
       )
@@ -289,66 +456,162 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
       ['7', '8', '9'],
       ['', '0', 'del'],
     ];
+
     return Column(
       children: keys.map((row) {
         return Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: row.map((key) {
-            if (key.isEmpty) return const SizedBox(width: 88, height: 72);
-            return _NumKey(
-              label: key,
-              onTap: key == 'del' ? _onDelete : () => _onPinDigit(key),
-            );
+            if (key.isEmpty) {
+              return const SizedBox(width: 88, height: 70);
+            }
+
+            return _buildKey(key);
           }).toList(),
         );
       }).toList(),
     );
   }
 
+  Widget _buildKey(String key) {
+    final isDel = key == 'del';
+
+    return GestureDetector(
+      onTap: isDel ? _onDelete : () => _onPinDigit(key),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 88,
+        height: 70,
+        alignment: Alignment.center,
+        child: isDel
+            ? const Icon(
+          Icons.backspace_outlined,
+          color: Colors.white38,
+          size: 22,
+        )
+            : Text(
+          key,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 28,
+            fontWeight: FontWeight.w300,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildBiometricFallback() {
-    if (_biometrics.isEmpty) return const SizedBox.shrink();
+    if (_biometrics.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final isFace = _biometrics.contains(BiometricType.face);
+
     return TextButton.icon(
       onPressed: _authenticate,
       icon: Icon(
-        _biometrics.contains(BiometricType.face)
+        isFace
             ? Icons.face_unlock_outlined
             : Icons.fingerprint_rounded,
-        color: const Color(0xFF58a6ff),
+        color: const Color(0xFFE8B84B),
         size: 18,
       ),
-      label: const Text(
-        'Biyometrik ile giriş',
-        style: TextStyle(color: Color(0xFF58a6ff), fontSize: 13),
+      label: Text(
+        isFace
+            ? 'Yüz tanıma ile giriş'
+            : 'Parmak izi ile giriş',
+        style: const TextStyle(
+          color: Color(0xFFE8B84B),
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBackground() {
+    return Positioned.fill(
+      child: CustomPaint(
+        painter: _BgPainter(),
       ),
     );
   }
 }
 
-class _NumKey extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-  const _NumKey({required this.label, required this.onTap});
+class _BgPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Logonun yeni dikey konumuna (height * 0.23 -> height * 0.28) göre parlamanın merkezi de senkronize olarak aşağı çekildi.
+    final centerTop = Offset(size.width * 0.5, size.height * 0.28);
+
+    final centerBottom = Offset(
+      size.width * 0.5,
+      size.height * 0.76,
+    );
+
+    final bgPaint = Paint()
+      ..shader = const RadialGradient(
+        colors: [
+          Color(0xFF10162A),
+          Color(0xFF060913),
+        ],
+        radius: 1.15,
+      ).createShader(
+        Rect.fromLTWH(0, 0, size.width, size.height),
+      );
+
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      bgPaint,
+    );
+
+    final paint = Paint()
+      ..style = PaintingStyle.stroke;
+
+    // Üst taraftaki logo etrafındaki keskin altın halkalar kaldırıldı.
+
+    final bottomRings = [
+      {'radius': 90.0, 'opacity': 0.06, 'width': 1.0},
+      {'radius': 160.0, 'opacity': 0.02, 'width': 1.0},
+    ];
+
+    for (var ring in bottomRings) {
+      paint
+        ..color = const Color(0xFFE8B84B)
+            .withOpacity(ring['opacity'] as double)
+        ..strokeWidth = ring['width'] as double;
+
+      canvas.drawCircle(
+        centerBottom,
+        ring['radius'] as double,
+        paint,
+      );
+    }
+
+    // Yumuşak parlamanın (glow) konumu da logo ile birlikte aşağı alındı
+    final glowPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          const Color(0xFFE8B84B).withOpacity(0.10),
+          Colors.transparent,
+        ],
+      ).createShader(
+        Rect.fromCircle(
+          center: centerTop,
+          radius: 180,
+        ),
+      );
+
+    canvas.drawCircle(
+      centerTop,
+      180,
+      glowPaint,
+    );
+  }
 
   @override
-  Widget build(BuildContext context) {
-    final isDel = label == 'del';
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 88,
-        height: 72,
-        alignment: Alignment.center,
-        child: isDel
-            ? const Icon(Icons.backspace_outlined, color: Color(0xFF8b949e), size: 22)
-            : Text(
-          label,
-          style: const TextStyle(
-            color: Color(0xFFe6edf3),
-            fontSize: 24,
-            fontWeight: FontWeight.w400,
-          ),
-        ),
-      ),
-    );
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return false;
   }
 }

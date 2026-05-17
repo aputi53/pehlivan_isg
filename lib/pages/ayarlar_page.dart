@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart'; // ← Link açma işlemleri için eklendi
 import '../services/biometric_service.dart';
 import '../screens/security/change_pin_screen.dart';
 
@@ -83,7 +84,6 @@ class _AyarlarPageState extends State<AyarlarPage>
   // ── Konum izni ───────────────────────────────────────────────────────────
   Future<void> _konumDegistir(bool value) async {
     if (value) {
-      // Android sistem izin diyaloğunu açar
       const channel = MethodChannel('com.pehlivanisg.pehlivan_isg/location');
       try {
         final granted =
@@ -97,7 +97,6 @@ class _AyarlarPageState extends State<AyarlarPage>
           ));
         }
       } catch (_) {
-        // Kanal henüz implement edilmemişse sadece state değiştir
         setState(() => konum = value);
       }
     } else {
@@ -105,10 +104,21 @@ class _AyarlarPageState extends State<AyarlarPage>
     }
   }
 
-  // ── Karanlık mod ─────────────────────────────────────────────────────────
-  void _darkModeDegistir(bool value) {
-    setState(() => darkMode = value);
-    themeNotifier.value = value ? ThemeMode.dark : ThemeMode.light;
+  // ── Harici Link Açma Yardımcı Fonksiyonu ───────────────────────────────────
+  Future<void> _launchURL(String urlString) async {
+    final Uri url = Uri.parse(urlString);
+    try {
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(_snack(
+          'Bağlantı açılamadı',
+          Icons.link_off,
+          Colors.redAccent,
+        ));
+      }
+    } catch (_) {}
   }
 
   @override
@@ -117,9 +127,6 @@ class _AyarlarPageState extends State<AyarlarPage>
     super.dispose();
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // BUILD
-  // ─────────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -148,12 +155,10 @@ class _AyarlarPageState extends State<AyarlarPage>
           position: _slideAnim,
           child: ListView(
             physics: const BouncingScrollPhysics(),
-            padding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             children: [
               // ── BİLDİRİMLER ─────────────────────────────────────────────
-              _sectionLabel('Bildirim Ayarları',
-                  Icons.notifications_outlined),
+              _sectionLabel('Bildirim Ayarları', Icons.notifications_outlined),
               const SizedBox(height: 10),
               _settingsCard([
                 _toggleTile(
@@ -206,16 +211,13 @@ class _AyarlarPageState extends State<AyarlarPage>
                       ? 'Parmak izi veya yüz tanıma'
                       : 'Bu cihazda desteklenmiyor',
                   value: biyometrik,
-                  onChanged:
-                  _biyometrikMevcut ? _biyometrikDegistir : null,
+                  onChanged: _biyometrikMevcut ? _biyometrikDegistir : null,
                 ),
                 _divider(),
                 _toggleTile(
                   icon: Icons.location_on_outlined,
                   title: 'Konum Erişimi',
-                  subtitle: konum
-                      ? 'Saha takibi etkin'
-                      : 'Saha takibi için izin verin',
+                  subtitle: konum ? 'Saha takibi etkin' : 'Saha takibi için izin verin',
                   value: konum,
                   onChanged: _konumDegistir,
                 ),
@@ -362,9 +364,7 @@ class _AyarlarPageState extends State<AyarlarPage>
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon,
-                color: disabled
-                    ? Colors.white24
-                    : const Color(0xFFE8B84B),
+                color: disabled ? Colors.white24 : const Color(0xFFE8B84B),
                 size: 18),
           ),
           const SizedBox(width: 14),
@@ -379,8 +379,7 @@ class _AyarlarPageState extends State<AyarlarPage>
                         fontSize: 14)),
                 const SizedBox(height: 2),
                 Text(subtitle,
-                    style: const TextStyle(
-                        color: Colors.white38, fontSize: 12)),
+                    style: const TextStyle(color: Colors.white38, fontSize: 12)),
               ],
             ),
           ),
@@ -390,8 +389,7 @@ class _AyarlarPageState extends State<AyarlarPage>
               value: value,
               onChanged: onChanged,
               activeColor: const Color(0xFFE8B84B),
-              activeTrackColor:
-              const Color(0xFFE8B84B).withOpacity(0.25),
+              activeTrackColor: const Color(0xFFE8B84B).withOpacity(0.25),
               inactiveThumbColor: Colors.white24,
               inactiveTrackColor: Colors.white10,
             ),
@@ -446,14 +444,12 @@ class _AyarlarPageState extends State<AyarlarPage>
                                 .withOpacity(0.15),
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
-                                color: (badgeColor ??
-                                    const Color(0xFFE8B84B))
+                                color: (badgeColor ?? const Color(0xFFE8B84B))
                                     .withOpacity(0.4)),
                           ),
                           child: Text(badge,
                               style: TextStyle(
-                                  color: badgeColor ??
-                                      const Color(0xFFE8B84B),
+                                  color: badgeColor ?? const Color(0xFFE8B84B),
                                   fontSize: 9,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: 0.8)),
@@ -463,8 +459,7 @@ class _AyarlarPageState extends State<AyarlarPage>
                   ),
                   const SizedBox(height: 2),
                   Text(subtitle,
-                      style: const TextStyle(
-                          color: Colors.white38, fontSize: 12)),
+                      style: const TextStyle(color: Colors.white38, fontSize: 12)),
                 ],
               ),
             ),
@@ -516,15 +511,12 @@ class _AyarlarPageState extends State<AyarlarPage>
     return SnackBar(
       backgroundColor: const Color(0xFF151C2E),
       behavior: SnackBarBehavior.floating,
-      shape:
-      RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       content: Row(
         children: [
           Icon(icon, color: color, size: 18),
           const SizedBox(width: 10),
-          Text(msg,
-              style:
-              const TextStyle(color: Colors.white, fontSize: 13)),
+          Text(msg, style: const TextStyle(color: Colors.white, fontSize: 13)),
         ],
       ),
     );
@@ -555,13 +547,11 @@ class _AyarlarPageState extends State<AyarlarPage>
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(
-                          color: Colors.white.withOpacity(0.1))),
+                      side: BorderSide(color: Colors.white.withOpacity(0.1))),
                 ),
                 child: const Text('İptal',
                     style: TextStyle(
-                        color: Colors.white54,
-                        fontWeight: FontWeight.w600)),
+                        color: Colors.white54, fontWeight: FontWeight.w600)),
               ),
             ),
             const SizedBox(width: 12),
@@ -597,14 +587,11 @@ class _AyarlarPageState extends State<AyarlarPage>
         content: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _destekSatir(Icons.email_outlined, 'E-posta',
-                'destek@pehlivanisg.com'),
+            _destekSatir(Icons.email_outlined, 'E-posta', 'destek@pehlivanisg.com'),
             const SizedBox(height: 12),
-            _destekSatir(Icons.phone_outlined, 'Telefon',
-                '+90 (XXX) XXX XX XX'),
+            _destekSatir(Icons.phone_outlined, 'Telefon', '+90 (XXX) XXX XX XX'),
             const SizedBox(height: 12),
-            _destekSatir(Icons.access_time_outlined, 'Çalışma Saatleri',
-                'Pzt – Cum, 09:00 – 18:00'),
+            _destekSatir(Icons.access_time_outlined, 'Çalışma Saatleri', 'Pzt – Cum, 09:00 – 18:00'),
             const SizedBox(height: 16),
             Container(
               width: double.infinity,
@@ -612,13 +599,32 @@ class _AyarlarPageState extends State<AyarlarPage>
               decoration: BoxDecoration(
                 color: const Color(0xFFE8B84B).withOpacity(0.07),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                    color: const Color(0xFFE8B84B).withOpacity(0.2)),
+                border: Border.all(color: const Color(0xFFE8B84B).withOpacity(0.2)),
               ),
               child: const Text(
                 'Uygulama ile ilgili sorun yaşıyorsanız yukarıdaki kanallardan bize ulaşabilirsiniz.',
-                style: TextStyle(
-                    color: Colors.white54, fontSize: 12, height: 1.6),
+                style: TextStyle(color: Colors.white54, fontSize: 12, height: 1.6),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // ── Kullanım Şartları Link Entegrasyonu ──────────────────────────
+            Center(
+              child: TextButton(
+                onPressed: () => _launchURL('https://www.pehlivanisg.com/kullanim-sartlari'),
+                style: TextButton.styleFrom(
+                  minimumSize: Size.zero,
+                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  'Kullanım Şartları ve Sözleşmesi',
+                  style: TextStyle(
+                    color: Color(0xFFE8B84B),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
               ),
             ),
           ],
@@ -636,9 +642,7 @@ class _AyarlarPageState extends State<AyarlarPage>
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label,
-                style: const TextStyle(
-                    color: Colors.white38, fontSize: 11)),
+            Text(label, style: const TextStyle(color: Colors.white38, fontSize: 11)),
             Text(value,
                 style: const TextStyle(
                     color: Colors.white,
@@ -658,30 +662,54 @@ class _AyarlarPageState extends State<AyarlarPage>
         iconColor: const Color(0xFFE8B84B),
         title: 'Gizlilik Politikası',
         body: null,
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _gizlilikBaslik('Veri Toplama'),
-              _gizlilikMetin(
-                  'Pehlivan İSG uygulaması yalnızca ISG denetim süreçleri için gerekli verileri toplar.'),
-              const SizedBox(height: 12),
-              _gizlilikBaslik('Veri Depolama'),
-              _gizlilikMetin(
-                  'Tüm verileriniz cihazınızda şifreli olarak saklanır. Sunucuya aktarım yalnızca sizin onayınızla gerçekleşir.'),
-              const SizedBox(height: 12),
-              _gizlilikBaslik('Biyometrik Veriler'),
-              _gizlilikMetin(
-                  'Parmak izi ve yüz tanıma verileri yalnızca cihazınızın güvenli donanımında işlenir, uygulamamız bu verilere erişemez.'),
-              const SizedBox(height: 12),
-              _gizlilikBaslik('Konum Verisi'),
-              _gizlilikMetin(
-                  'Konum erişimi yalnızca saha denetim kayıtları için kullanılır ve üçüncü taraflarla paylaşılmaz.'),
-              const SizedBox(height: 12),
-              _gizlilikBaslik('İletişim'),
-              _gizlilikMetin(
-                  'Gizlilik ile ilgili sorularınız için: gizlilik@pehlivanisg.com'),
-            ],
+        content: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.45, // Kaydırma alanı optimize edildi
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _gizlilikBaslik('Veri Toplama'),
+                _gizlilikMetin('Pehlivan İSG uygulaması yalnızca ISG denetim süreçleri için gerekli verileri toplar.'),
+                const SizedBox(height: 12),
+                _gizlilikBaslik('Veri Depolama'),
+                _gizlilikMetin('Tüm verileriniz cihazınızda şifreli olarak saklanır. Sunucuya aktarım yalnızca sizin onayınızla gerçekleşir.'),
+                const SizedBox(height: 12),
+                _gizlilikBaslik('Biyometrik Veriler'),
+                _gizlilikMetin('Parmak izi ve yüz tanıma verileri yalnızca cihazınızın güvenli donanımında işlenir, uygulamamız bu verilere erişemez.'),
+                const SizedBox(height: 12),
+                _gizlilikBaslik('Konum Verisi'),
+                _gizlilikMetin('Konum erişimi yalnızca saha denetim kayıtları için kullanılır ve üçüncü taraflarla paylaşılmaz.'),
+                const SizedBox(height: 12),
+                // ── Veri Silme Maddesi Entegrasyonu ──────────────────────────
+                _gizlilikBaslik('Veri Silme ve Haklarınız'),
+                _gizlilikMetin('Kanunlar kapsamındaki haklarınızı kullanmak veya verilerinizin kalıcı olarak silmesini talep etmek için destek kanallarımızdan bize ulaşabilirsiniz.'),
+                const SizedBox(height: 12),
+                _gizlilikBaslik('İletişim'),
+                _gizlilikMetin('Gizlilik ile ilgili sorularınız için: gizlilik@pehlivanisg.com'),
+                const SizedBox(height: 16),
+                // ── Web Politikası Link Entegrasyonu ──────────────────────────
+                Center(
+                  child: TextButton(
+                    onPressed: () => _launchURL('https://www.pehlivanisg.com/gizlilik-politikasi'),
+                    style: TextButton.styleFrom(
+                      minimumSize: Size.zero,
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                    ),
+                    child: const Text(
+                      'Tam metni web sitemizden okumak için tıklayınız',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Color(0xFFE8B84B),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         actions: _kapatButon(),
@@ -699,24 +727,22 @@ class _AyarlarPageState extends State<AyarlarPage>
   );
 
   Widget _gizlilikMetin(String text) => Text(text,
-      style:
-      const TextStyle(color: Colors.white54, fontSize: 12, height: 1.6));
+      style: const TextStyle(color: Colors.white54, fontSize: 12, height: 1.6));
 
   void _showAbout() {
     showDialog(
       context: context,
       builder: (_) => Dialog(
         backgroundColor: const Color(0xFF151C2E),
-        shape:
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Padding(
-          padding: const EdgeInsets.all(28),
+          padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 100,
-                height: 100,
+                width: 90,
+                height: 90,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(22),
                   border: Border.all(
@@ -730,16 +756,16 @@ class _AyarlarPageState extends State<AyarlarPage>
                       errorBuilder: (_, __, ___) => Container(
                         color: const Color(0xFF0A0E1A),
                         child: const Icon(Icons.health_and_safety,
-                            color: Color(0xFFE8B84B), size: 48),
+                            color: Color(0xFFE8B84B), size: 44),
                       )),
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 14),
               const Text('PEHLİVAN',
                   style: TextStyle(
                       color: Color(0xFFE8B84B),
                       fontWeight: FontWeight.w900,
-                      fontSize: 24,
+                      fontSize: 22,
                       letterSpacing: 4)),
               const SizedBox(height: 4),
               const Text('PROFESYONEL İSG\nYÖNETİM SİSTEMİ',
@@ -747,49 +773,70 @@ class _AyarlarPageState extends State<AyarlarPage>
                   style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
-                      fontSize: 13,
+                      fontSize: 12,
                       letterSpacing: 1.5,
-                      height: 1.5)),
+                      height: 1.4)),
               const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE8B84B).withOpacity(0.10),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                      color: const Color(0xFFE8B84B).withOpacity(0.25)),
-                ),
-                child: const Text('v1.0.0',
-                    style: TextStyle(
-                        color: Color(0xFFE8B84B),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8B84B).withOpacity(0.10),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFE8B84B).withOpacity(0.25)),
+                    ),
+                    child: const Text('v1.0.0',
+                        style: TextStyle(
+                            color: Color(0xFFE8B84B),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600)),
+                  ),
+                ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 10),
+              // ── Açık Kaynak Lisansları Buton Entegrasyonu ────────────────────
+              TextButton.icon(
+                onPressed: () {
+                  Navigator.pop(context); // Önce mevcut diyaloğu kapatıyoruz
+                  showLicensePage(
+                    context: context,
+                    applicationName: 'Pehlivan İSG',
+                    applicationVersion: '1.0.0',
+                    applicationIcon: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Icon(Icons.health_and_safety, color: const Color(0xFFE8B84B), size: 48),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.assignment_outlined, size: 14, color: Color(0xFFE8B84B)),
+                label: const Text(
+                  'Açık Kaynak Lisansları',
+                  style: TextStyle(color: Color(0xFFE8B84B), fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              ),
+              const SizedBox(height: 6),
               const Text(
                 'İş Sağlığı ve Güvenliği profesyonelleri için geliştirilmiş mobil yönetim platformu.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                    color: Colors.white54, fontSize: 13, height: 1.6),
+                style: TextStyle(color: Colors.white54, fontSize: 12, height: 1.5),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.04),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                // ← 2026 + Pehlivan İSG
                 child: const Text(
                   '© 2026 Pehlivan İSG · Tüm hakları saklıdır.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white38, fontSize: 11),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -797,13 +844,11 @@ class _AyarlarPageState extends State<AyarlarPage>
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFE8B84B),
                     foregroundColor: const Color(0xFF0A0E1A),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
-                  child: const Text('Kapat',
-                      style: TextStyle(fontWeight: FontWeight.w700)),
+                  child: const Text('Kapat', style: TextStyle(fontWeight: FontWeight.w700)),
                 ),
               ),
             ],
@@ -813,7 +858,6 @@ class _AyarlarPageState extends State<AyarlarPage>
     );
   }
 
-  // ── Genel dialog şablonu ──────────────────────────────────────────────────
   Widget _dialog({
     required IconData icon,
     required Color iconColor,
@@ -824,8 +868,7 @@ class _AyarlarPageState extends State<AyarlarPage>
   }) {
     return Dialog(
       backgroundColor: const Color(0xFF151C2E),
-      shape:
-      RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -849,11 +892,11 @@ class _AyarlarPageState extends State<AyarlarPage>
             if (body != null)
               Text(body,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 13,
-                      height: 1.5)),
-            if (content != null) content,
+                  style: const TextStyle(color: Colors.white54, fontSize: 13, height: 1.5)),
+            if (content != null) ...[
+              const SizedBox(height: 10),
+              content,
+            ],
             const SizedBox(height: 20),
             actions,
           ],
@@ -870,13 +913,11 @@ class _AyarlarPageState extends State<AyarlarPage>
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFFE8B84B),
           foregroundColor: const Color(0xFF0A0E1A),
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           elevation: 0,
           padding: const EdgeInsets.symmetric(vertical: 14),
         ),
-        child:
-        const Text('Kapat', style: TextStyle(fontWeight: FontWeight.w700)),
+        child: const Text('Kapat', style: TextStyle(fontWeight: FontWeight.w700)),
       ),
     );
   }

@@ -19,8 +19,17 @@ dependencies:
   local_auth: ^2.3.0
   flutter_secure_storage: ^9.2.2
 
-  # --- AÇILIŞ EKRANI (Buraya Taşındı) ---
+  # --- AÇILIŞ EKRANI ---
   flutter_native_splash: ^2.4.0
+
+  # --- YENİ EKLENENLER ---
+
+  flutter_dotenv: ^5.2.1
+  pdf: ^3.11.1
+  printing: ^5.13.1
+  path_provider: ^2.1.4
+  share_plus: ^10.0.0
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:
@@ -34,9 +43,9 @@ dev_dependencies:
 # ---------------------------------------------------------
 flutter:
   uses-material-design: true
-
   assets:
     - assets/
+    - .env        # ← bunu ekleyin
 
 # ---------------------------------------------------------
 # UYGULAMA İKONU AYARLARI

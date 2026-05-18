@@ -1,5 +1,5 @@
 import 'dart:io';
-
+import 'package:pehlivan_isg/pages/gorsel_rapor_page.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -131,6 +131,7 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
                     "mail": mailController.text,
                     "durum": "NORMAL",
                     "notlar": <FirmaNot>[],
+                    "raporlar": <GorselRapor>[],
                   });
                 });
                 Navigator.pop(context);
@@ -738,7 +739,7 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     firma = widget.gruplar[widget.grupIndex]["firmalar"][widget.firmaIndex];
     isimCtrl = TextEditingController(text: firma["isim"] ?? "");
     telCtrl = TextEditingController(text: firma["telefon"] ?? "");
@@ -892,10 +893,9 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
               child: TabBar(
                 controller: _tabController,
                 indicator: BoxDecoration(
-                  color: Colors.amber.withValues(alpha:0.15),
+                  color: Colors.amber.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
-                  border:
-                  Border.all(color: Colors.amber.withValues(alpha:0.4)),
+                  border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
                 ),
                 indicatorSize: TabBarIndicatorSize.tab,
                 dividerColor: Colors.transparent,
@@ -931,10 +931,10 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
                       ],
                     ),
                   ),
+                  const Tab(text: "Görsel Rapor"), // 3. Sekme başlığımız premium tasarıma dahil oldu
                 ],
               ),
             ),
-
             const SizedBox(height: 8),
 
             Expanded(
@@ -1309,7 +1309,14 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
                       ),
                     ],
                   ),
-                ],
+
+                  /* ========== 3. SEKME: GÖRSEL RAPOR MODÜLÜ ========== */
+                  GorselRaporPage(
+                    firmaAdi: firma["isim"] ?? "Bilinmeyen Firma",
+                    raporlar: (firma["raporlar"] as List<dynamic>?)?.cast<GorselRapor>() ?? [],
+                  ),
+
+                ], // TabBarView'in ana listesini kapatan parantez
               ),
             ),
           ],
@@ -1318,7 +1325,6 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
     );
   }
 }
-
 /* ====================================================
    NOT KARTI WIDGET
    ==================================================== */

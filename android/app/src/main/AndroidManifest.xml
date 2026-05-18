@@ -22,7 +22,7 @@
     </queries>
 
     <application
-        android:label="pehlivan_isg"
+        android:label="PehlivanİSG"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"
         android:allowBackup="true">

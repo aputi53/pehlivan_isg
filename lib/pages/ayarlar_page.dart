@@ -66,7 +66,7 @@ class _AyarlarPageState extends State<AyarlarPage>
   Future<void> _biyometrikDegistir(bool value) async {
     if (value) {
       final result = await _bio.authenticate(
-          reason: 'Biyometrik kilidi etkinleştirmek için doğrulayın');
+          reason: 'Biyometrik kiliti etkinleştirmek için doğrulayın');
       if (result != BiometricResult.success) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(_snack(
@@ -192,7 +192,7 @@ class _AyarlarPageState extends State<AyarlarPage>
                 _toggleTile(
                   icon: Icons.summarize_outlined,
                   title: 'Otomatik Rapor',
-                  subtitle: 'Günlük ISG raporu bildirimi',
+                  subtitle: 'Günlük İSG raporu bildirimi',
                   value: otomatikRapor,
                   onChanged: (v) => setState(() => otomatikRapor = v),
                 ),
@@ -291,7 +291,7 @@ class _AyarlarPageState extends State<AyarlarPage>
                 _navTile(
                   icon: Icons.info_outline,
                   title: 'Uygulama Hakkında',
-                  subtitle: 'Pehlivan İSG · © 2026',
+                  subtitle: 'PehlivanİSG · © 2026',
                   onTap: _showAbout,
                 ),
               ]),
@@ -312,6 +312,13 @@ class _AyarlarPageState extends State<AyarlarPage>
   // ─────────────────────────────────────────────────────────────────────────
 
   Widget _sectionLabel(String text, IconData icon) {
+    // SÜREÇ ANALİZİ: Hataya sebep olan argüman temizlendi.
+    // İngilizce yereldeki 'i' -> 'BİLDIRIM' sorununu aşmak için harfleri manuel eşliyoruz.
+    final String duzgunMetin = text
+        .replaceAll('i', 'İ')
+        .replaceAll('ı', 'I')
+        .toUpperCase();
+
     return Row(
       children: [
         Container(
@@ -323,7 +330,7 @@ class _AyarlarPageState extends State<AyarlarPage>
           child: Icon(icon, color: const Color(0xFFE8B84B), size: 14),
         ),
         const SizedBox(width: 10),
-        Text(text.toUpperCase(),
+        Text(duzgunMetin,
             style: const TextStyle(
                 color: Colors.white54,
                 fontSize: 11,
@@ -670,7 +677,7 @@ class _AyarlarPageState extends State<AyarlarPage>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _gizlilikBaslik('Veri Toplama'),
-                _gizlilikMetin('Pehlivan İSG uygulaması yalnızca ISG denetim süreçleri için gerekli verileri toplar.'),
+                _gizlilikMetin('PehlivanİSG uygulaması yalnızca İSG denetim süreçleri için gerekli verileri toplar.'),
                 const SizedBox(height: 12),
                 _gizlilikBaslik('Veri Depolama'),
                 _gizlilikMetin('Tüm verileriniz cihazınızda şifreli olarak saklanır. Sunucuya aktarım yalnızca sizin onayınızla gerçekleşir.'),
@@ -802,7 +809,7 @@ class _AyarlarPageState extends State<AyarlarPage>
                   Navigator.pop(context); // Önce mevcut diyaloğu kapatıyoruz
                   showLicensePage(
                     context: context,
-                    applicationName: 'Pehlivan İSG',
+                    applicationName: 'PehlivanİSG',
                     applicationVersion: '1.0.0',
                     applicationIcon: Padding(
                       padding: const EdgeInsets.all(12),
@@ -831,7 +838,7 @@ class _AyarlarPageState extends State<AyarlarPage>
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Text(
-                  '© 2026 Pehlivan İSG · Tüm hakları saklıdır.',
+                  '© 2026 PehlivanİSG · Tüm hakları saklıdır.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white38, fontSize: 11),
                 ),

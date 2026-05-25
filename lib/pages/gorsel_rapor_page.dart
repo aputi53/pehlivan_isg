@@ -4,13 +4,16 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:http/http.dart' as http;
 
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
+
+import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:http/http.dart' as http;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // MODEL
 // ─────────────────────────────────────────────────────────────────────────────
@@ -55,6 +58,7 @@ class _GorselRaporPageState extends State<GorselRaporPage> {
         builder: (_) => RaporOlusturPage(firmaAdi: widget.firmaAdi),
       ),
     );
+
     if (yeniRapor != null) {
       setState(() => widget.raporlar.add(yeniRapor));
     }
@@ -195,43 +199,42 @@ class _GorselRaporPageState extends State<GorselRaporPage> {
   }
 }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // RAPOR OLUŞTUR SAYFASI
-  // ─────────────────────────────────────────────────────────────────────────────
-  class RaporOlusturPage extends StatefulWidget {
-    final String firmaAdi;
+// ─────────────────────────────────────────────────────────────────────────────
+// RAPOR OLUŞTUR SAYFASI
+// ─────────────────────────────────────────────────────────────────────────────
+class RaporOlusturPage extends StatefulWidget {
+  final String firmaAdi;
+  const RaporOlusturPage({super.key, required this.firmaAdi});
 
-    const RaporOlusturPage({super.key, required this.firmaAdi});
+  @override
+  State<RaporOlusturPage> createState() => _RaporOlusturPageState();
+}
 
-    @override
-    State<RaporOlusturPage> createState() => _RaporOlusturPageState();
+class _RaporOlusturPageState extends State<RaporOlusturPage> {
+  final ImagePicker _picker = ImagePicker();
+  final List<String> _fotoPaths = [];
+  bool _yukleniyor = false;
+  String? _analizSonucu;
+  final TextEditingController _raporCtrl = TextEditingController();
+  final TextEditingController _baslikCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _raporCtrl.dispose();
+    _baslikCtrl.dispose();
+    super.dispose();
   }
 
-  class _RaporOlusturPageState extends State<RaporOlusturPage> {
-    final ImagePicker _picker = ImagePicker();
-    final List<String> _fotoPaths = [];
-    bool _yukleniyor = false;
-    String? _analizSonucu;
-    final TextEditingController _raporCtrl = TextEditingController();
-    final TextEditingController _baslikCtrl = TextEditingController();
-
-    @override
-    void dispose() {
-      _raporCtrl.dispose();
-      _baslikCtrl.dispose();
-      super.dispose();
+  Future<void> _fotoEkle(ImageSource source) async {
+    final picked = await _picker.pickMultiImage(imageQuality: 85);
+    if (picked.isNotEmpty) {
+      setState(() {
+        for (var p in picked) {
+          if (!_fotoPaths.contains(p.path)) _fotoPaths.add(p.path);
+        }
+      });
     }
-
-    Future<void> _fotoEkle(ImageSource source) async {
-      final picked = await _picker.pickMultiImage(imageQuality: 85);
-      if (picked.isNotEmpty) {
-        setState(() {
-          for (var p in picked) {
-            if (!_fotoPaths.contains(p.path)) _fotoPaths.add(p.path);
-          }
-        });
-      }
-    }
+  }
 
   Future<void> _kameraAc() async {
     final picked = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85);
@@ -273,118 +276,72 @@ class _GorselRaporPageState extends State<GorselRaporPage> {
     );
   }
 
-    Future<void> _analizEt() async {
-      if (_fotoPaths.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Lütfen en az bir fotoğraf ekleyin')),
-        );
-        return;
-      }
-
-      setState(() => _yukleniyor = true);
-
-      try {
-        final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
-
-        if (apiKey.isEmpty) {
-          throw Exception("API KEY bulunamadı");
-        }
-
-        final url = Uri.parse(
-          'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$apiKey',
-        );
-
-        const promptText = '''
-Sen bir İş Sağlığı ve Güvenliği (İSG) uzmanısın.
-
-Fotoğrafları analiz et ve profesyonel rapor oluştur.
-
-Format:
-## GENEL DEĞERLENDİRME
-## UYGUNSUZLUKLAR
-## OLUMLU DURUMLAR
-## ÖNERİLER
-## SONUÇ
-
-Türkçe, net ve profesyonel yaz.
-''';
-
-        final List<Map<String, dynamic>> parts = [];
-
-        parts.add({
-          "text": promptText,
-        });
-
-        for (final path in _fotoPaths) {
-          final bytes = await File(path).readAsBytes();
-          final base64Image = base64Encode(bytes);
-
-          parts.add({
-            "inlineData": {
-              "mimeType": "image/jpeg",
-              "data": base64Image
-            }
-          });
-        }
-
-        final requestBody = {
-          "contents": [
-            {
-              "role": "user",
-              "parts": parts
-            }
-          ]
-        };
-
-        final response = await http.post(
-          url,
-          headers: {"Content-Type": "application/json"},
-          body: jsonEncode(requestBody),
-        );
-
-        if (response.statusCode != 200) {
-          throw Exception("API HATASI: ${response.body}");
-        }
-
-        final data = jsonDecode(response.body);
-
-        final candidates = data["candidates"];
-
-        if (candidates == null || candidates.isEmpty) {
-          throw Exception("Boş cevap geldi");
-        }
-
-        final content = candidates[0]["content"];
-        final respParts = content["parts"];
-
-        if (respParts == null || respParts.isEmpty) {
-          throw Exception("İçerik boş geldi");
-        }
-
-        final result = respParts[0]["text"] ?? "Sonuç üretilemedi";
-
-        setState(() {
-          _analizSonucu = result;
-          _raporCtrl.text = result;
-
-          if (_baslikCtrl.text.isEmpty) {
-            _baslikCtrl.text =
-            'İSG Raporu - ${DateTime.now().day}.${DateTime.now().month}.${DateTime.now().year}';
-          }
-
-          _yukleniyor = false;
-        });
-      } catch (e) {
-        setState(() => _yukleniyor = false);
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Hata: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+  Future<void> _analizEt() async {
+    if (_fotoPaths.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Lütfen en az bir fotoğraf ekleyin')),
+      );
+      return;
     }
+
+    setState(() => _yukleniyor = true);
+    try {
+      final String rawKey = dotenv.env['GEMINI_API_KEY'] ?? '';
+      final String apiKey = rawKey.trim();
+
+      if (apiKey.isEmpty) {
+        throw Exception(".env dosyasında GEMINI_API_KEY bulunamadı.");
+      }
+
+      // Model ismine 'models/' ön ekini ekleyerek deniyoruz (en garanti yol)
+      final model = GenerativeModel(
+        // YENİ - GÜNCEL ✅
+        model: 'gemini-2.0-flash',
+        apiKey: apiKey,
+      );
+
+      final List<DataPart> parts = [];
+      for (final path in _fotoPaths) {
+        final bytes = await File(path).readAsBytes();
+        parts.add(DataPart('image/jpeg', bytes));
+      }
+
+      final prompt = TextPart('''Sen bir İş Sağlığı ve Güvenliği (İSG) uzmanısın. 
+Fotoğrafları analiz edip Türkçe bir rapor hazırla.''');
+
+      final response = await model.generateContent([
+        Content.multi([prompt, ...parts])
+      ]);
+
+      final text = response.text;
+
+      if (text == null || text.isEmpty) {
+        throw Exception('Yapay zekadan boş yanıt döndü.');
+      }
+
+      setState(() {
+        _analizSonucu = text;
+        _raporCtrl.text = text;
+        _yukleniyor = false;
+      });
+    } catch (e) {
+      setState(() => _yukleniyor = false);
+
+      // Hata mesajını daha anlaşılır hale getirelim
+      String errorMsg = e.toString();
+      if (errorMsg.contains('404')) {
+        errorMsg = "Model bulunamadı (404). Lütfen aistudio.google.com üzerinden YENİ bir API anahtarı oluşturup .env dosyasına yazın ve uygulamayı TAM RESTART yapın.";
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Hata: $errorMsg'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 10),
+        ),
+      );
+    }
+  }
 
   void _kaydet() {
     if (_raporCtrl.text.trim().isEmpty) {
@@ -403,7 +360,6 @@ Türkçe, net ve profesyonel yaz.
           ? 'İSG Raporu - ${DateTime.now().day}.${DateTime.now().month}.${DateTime.now().year}'
           : _baslikCtrl.text,
     );
-
     Navigator.pop(context, rapor);
   }
 
@@ -439,7 +395,6 @@ Türkçe, net ve profesyonel yaz.
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // BAŞLIK
             Container(
               decoration: BoxDecoration(
                 color: const Color(0xFF10151F),
@@ -458,10 +413,7 @@ Türkçe, net ve profesyonel yaz.
                 ),
               ),
             ),
-
             const SizedBox(height: 16),
-
-            // FOTOĞRAFLAR
             const Text('FOTOĞRAFLAR',
                 style: TextStyle(
                     color: Colors.white38,
@@ -469,7 +421,6 @@ Türkçe, net ve profesyonel yaz.
                     fontWeight: FontWeight.w700,
                     letterSpacing: 2)),
             const SizedBox(height: 10),
-
             SizedBox(
               height: 110,
               child: ListView(
@@ -536,10 +487,7 @@ Türkçe, net ve profesyonel yaz.
                 ],
               ),
             ),
-
             const SizedBox(height: 16),
-
-            // ANALİZ BUTONU
             if (_analizSonucu == null)
               SizedBox(
                 width: double.infinity,
@@ -567,8 +515,6 @@ Türkçe, net ve profesyonel yaz.
                   ),
                 ),
               ),
-
-            // RAPOR METNİ
             if (_analizSonucu != null) ...[
               const SizedBox(height: 16),
               Row(
@@ -688,13 +634,11 @@ class _RaporDetayPageState extends State<RaporDetayPage> {
 
   Future<void> _pdfOlusturVePaylas() async {
     setState(() => _pdfYukleniyor = true);
-
     try {
       final pdf = pw.Document();
       final tarih =
           '${widget.rapor.olusturmaTarihi.day.toString().padLeft(2, '0')}.${widget.rapor.olusturmaTarihi.month.toString().padLeft(2, '0')}.${widget.rapor.olusturmaTarihi.year}';
 
-      // Fotoğrafları yükle
       final List<pw.Widget> fotoWidgets = [];
       for (final path in widget.rapor.fotoPaths) {
         final bytes = await File(path).readAsBytes();
@@ -712,7 +656,6 @@ class _RaporDetayPageState extends State<RaporDetayPage> {
           pageFormat: PdfPageFormat.a4,
           margin: const pw.EdgeInsets.all(40),
           build: (context) => [
-            // BAŞLIK
             pw.Container(
               padding: const pw.EdgeInsets.all(16),
               decoration: pw.BoxDecoration(
@@ -734,8 +677,6 @@ class _RaporDetayPageState extends State<RaporDetayPage> {
               ),
             ),
             pw.SizedBox(height: 16),
-
-            // BİLGİLER
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
@@ -754,8 +695,6 @@ class _RaporDetayPageState extends State<RaporDetayPage> {
             ),
             pw.Divider(),
             pw.SizedBox(height: 8),
-
-            // FOTOĞRAFLAR
             if (fotoWidgets.isNotEmpty) ...[
               pw.Text('FOTOĞRAFLAR',
                   style: pw.TextStyle(
@@ -764,8 +703,6 @@ class _RaporDetayPageState extends State<RaporDetayPage> {
               ...fotoWidgets,
               pw.SizedBox(height: 16),
             ],
-
-            // RAPOR
             pw.Text('RAPOR İÇERİĞİ',
                 style: pw.TextStyle(
                     fontWeight: pw.FontWeight.bold, fontSize: 12)),
@@ -835,7 +772,6 @@ class _RaporDetayPageState extends State<RaporDetayPage> {
   Widget build(BuildContext context) {
     final tarih =
         '${widget.rapor.olusturmaTarihi.day.toString().padLeft(2, '0')}.${widget.rapor.olusturmaTarihi.month.toString().padLeft(2, '0')}.${widget.rapor.olusturmaTarihi.year}';
-
     return Scaffold(
       backgroundColor: const Color(0xFF0A0E1A),
       appBar: AppBar(
@@ -883,7 +819,6 @@ class _RaporDetayPageState extends State<RaporDetayPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // BİLGİ KARTI
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -920,8 +855,6 @@ class _RaporDetayPageState extends State<RaporDetayPage> {
                 ],
               ),
             ),
-
-            // FOTOĞRAFLAR
             if (widget.rapor.fotoPaths.isNotEmpty) ...[
               const SizedBox(height: 16),
               const Text('FOTOĞRAFLAR',
@@ -967,10 +900,7 @@ class _RaporDetayPageState extends State<RaporDetayPage> {
                 ),
               ),
             ],
-
             const SizedBox(height: 16),
-
-            // RAPOR METNİ
             Row(
               children: [
                 const Text('RAPOR İÇERİĞİ',
@@ -1018,8 +948,6 @@ class _RaporDetayPageState extends State<RaporDetayPage> {
               ),
             ),
             const SizedBox(height: 24),
-
-            // PDF / PAYLAŞ BUTONU
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(

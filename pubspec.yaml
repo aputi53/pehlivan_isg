@@ -5,7 +5,7 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.11.5
+  sdk: '>=3.0.0 <4.0.0' # SDK aralığı tüm modern paketleri destekleyecek şekilde düzeltildi
 
 dependencies:
   flutter:
@@ -23,13 +23,13 @@ dependencies:
   flutter_native_splash: ^2.4.0
 
   # --- YENİ EKLENENLER ---
-
   flutter_dotenv: ^5.2.1
   pdf: ^3.11.1
   printing: ^5.13.1
   path_provider: ^2.1.4
   share_plus: ^10.0.0
   http: ^1.6.0
+  google_generative_ai: ^0.4.6 # Resmi Google Yapay Zeka Paketi Buraya Eklendi
 
 dev_dependencies:
   flutter_test:
@@ -45,7 +45,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/
-    - .env        # ← bunu ekleyin
+    - .env
 
 # ---------------------------------------------------------
 # UYGULAMA İKONU AYARLARI

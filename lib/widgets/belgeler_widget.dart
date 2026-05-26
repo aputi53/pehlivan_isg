@@ -23,9 +23,10 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
 
   static const _turler = [
     "Sertifika",
-    "Risk Değerlendirme",
+    "Risk Analizi",
+    "Eğitim Belgesi",
+    "Ek-2 Muayene",
     "Acil Durum Planı",
-    "Denetim Formu",
     "Diğer",
   ];
 
@@ -58,6 +59,7 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
 
   Future<void> _belgeEkleSheet() async {
     String? secilenTur = _turler.first;
+    DateTime? gecerlilikTarihi;
     final baslikCtrl = TextEditingController();
 
     await showModalBottomSheet(
@@ -121,6 +123,53 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
                     .toList(),
                 onChanged: (v) => setM(() => secilenTur = v),
               ),
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: ctx,
+                    initialDate: gecerlilikTarihi ?? DateTime.now(),
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2035),
+                    builder: (c, child) => Theme(
+                      data: ThemeData.dark().copyWith(
+                        colorScheme: const ColorScheme.dark(
+                          primary: Colors.amber,
+                          surface: Color(0xFF161B22),
+                        ),
+                      ),
+                      child: child!,
+                    ),
+                  );
+                  if (picked != null) setM(() => gecerlilikTarihi = picked);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0D1117),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.calendar_today_outlined,
+                          color: Colors.amber, size: 16),
+                      const SizedBox(width: 8),
+                      Text(
+                        gecerlilikTarihi != null
+                            ? "Geçerlilik: ${_formatTarih(gecerlilikTarihi!)}"
+                            : "Geçerlilik Tarihi (opsiyonel)",
+                        style: TextStyle(
+                          color: gecerlilikTarihi != null
+                              ? Colors.white
+                              : Colors.grey[500],
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -139,6 +188,7 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
                                 : baslikCtrl.text,
                             dosyaYolu: img.path,
                             tur: secilenTur ?? "Diğer",
+                            gecerlilikTarihi: gecerlilikTarihi,
                           );
                           setState(() {
                             widget.belgeler.add({
@@ -150,6 +200,7 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
                               'dosyaYolu': img.path,
                               'tur': secilenTur,
                               'eklemeTarihi': DateTime.now(),
+                              'gecerlilikTarihi': gecerlilikTarihi,
                             });
                           });
                           if (ctx.mounted) Navigator.pop(ctx);
@@ -173,6 +224,7 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
                                 : baslikCtrl.text,
                             dosyaYolu: img.path,
                             tur: secilenTur ?? "Diğer",
+                            gecerlilikTarihi: gecerlilikTarihi,
                           );
                           setState(() {
                             widget.belgeler.add({
@@ -184,6 +236,7 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
                               'dosyaYolu': img.path,
                               'tur': secilenTur,
                               'eklemeTarihi': DateTime.now(),
+                              'gecerlilikTarihi': gecerlilikTarihi,
                             });
                           });
                         }
@@ -317,6 +370,14 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
                                       color: Colors.grey[600],
                                       fontSize: 11),
                                 ),
+                                if (b['gecerlilikTarihi'] != null)
+                                  Text(
+                                    "Son: ${_formatTarih(b['gecerlilikTarihi'] as DateTime)}",
+                                    style: TextStyle(
+                                        color: Colors.orange
+                                            .withValues(alpha: 0.8),
+                                        fontSize: 10),
+                                  ),
                               ],
                             ),
                           ),

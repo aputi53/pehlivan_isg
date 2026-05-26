@@ -2,6 +2,7 @@ import 'dart:convert'; // Base64 resmi çözmek için eklendi
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // Güvenli hafıza için eklendi
 import 'package:pehlivan_isg/pages/denetimler_page.dart';
+import 'package:pehlivan_isg/pages/firmalar_page.dart';
 import 'package:pehlivan_isg/pages/profil_page.dart';
 import 'package:pehlivan_isg/pages/ayarlar_page.dart';
 
@@ -110,6 +111,21 @@ class _AppDrawerState extends State<AppDrawer> {
                   context,
                   MaterialPageRoute(
                     builder: (context) => const DenetimlerPage(),
+                  ),
+                );
+              },
+            ),
+
+            // 🏢 FİRMALAR
+            ListTile(
+              leading: const Icon(Icons.business, color: Colors.white70),
+              title: const Text('Firmalar', style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const FirmalarPage(),
                   ),
                 );
               },

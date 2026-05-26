@@ -16,8 +16,10 @@ class DatabaseService {
 
     return openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
+      onOpen: (db) => db.execute('PRAGMA foreign_keys = ON'),
     );
   }
 
@@ -33,12 +35,13 @@ class DatabaseService {
     await db.execute('''
       CREATE TABLE firmalar (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        grupId INTEGER NOT NULL,
+        grupId INTEGER,
         isim TEXT NOT NULL,
         telefon TEXT,
         mail TEXT,
         durum TEXT NOT NULL DEFAULT 'NORMAL',
-        FOREIGN KEY (grupId) REFERENCES gruplar(id) ON DELETE CASCADE
+        ziyaretTarihi TEXT,
+        FOREIGN KEY (grupId) REFERENCES gruplar(id) ON DELETE SET NULL
       )
     ''');
 
@@ -71,13 +74,14 @@ class DatabaseService {
         firmaId INTEGER NOT NULL,
         baslik TEXT NOT NULL,
         dosyaYolu TEXT NOT NULL,
-        tur TEXT NOT NULL DEFAULT 'diger',
+        tur TEXT NOT NULL DEFAULT 'Diğer',
         eklemeTarihi TEXT NOT NULL,
+        gecerlilikTarihi TEXT,
         FOREIGN KEY (firmaId) REFERENCES firmalar(id) ON DELETE CASCADE
       )
     ''');
 
-    // Onboarding: örnek grup ve firma
+    // Onboarding
     await db.insert('gruplar', {
       'grupAdi': 'ÖRNEK GRUP',
       'tarih': DateTime(2026, 6, 1).toIso8601String(),
@@ -89,6 +93,37 @@ class DatabaseService {
       'mail': 'ornek@firma.com',
       'durum': 'NORMAL',
     });
+  }
+
+  static Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // firmalar: grupId nullable + ziyaretTarihi ekle
+      await db.execute('PRAGMA foreign_keys = OFF');
+
+      await db.execute('''
+        CREATE TABLE firmalar_v2 (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          grupId INTEGER,
+          isim TEXT NOT NULL,
+          telefon TEXT,
+          mail TEXT,
+          durum TEXT NOT NULL DEFAULT 'NORMAL',
+          ziyaretTarihi TEXT,
+          FOREIGN KEY (grupId) REFERENCES gruplar(id) ON DELETE SET NULL
+        )
+      ''');
+      await db.execute('''
+        INSERT INTO firmalar_v2 (id, grupId, isim, telefon, mail, durum)
+        SELECT id, grupId, isim, telefon, mail, durum FROM firmalar
+      ''');
+      await db.execute('DROP TABLE firmalar');
+      await db.execute('ALTER TABLE firmalar_v2 RENAME TO firmalar');
+
+      // belgeler: gecerlilikTarihi sütunu ekle
+      await db.execute('ALTER TABLE belgeler ADD COLUMN gecerlilikTarihi TEXT');
+
+      await db.execute('PRAGMA foreign_keys = ON');
+    }
   }
 
   // ─── GRUPLAR ───────────────────────────────────────
@@ -130,7 +165,20 @@ class DatabaseService {
 
   static Future<void> deleteGrup(int id) async {
     final database = await db;
+    // ON DELETE SET NULL → firmalar grupsuz kalır, silinmez
     await database.delete('gruplar', where: 'id = ?', whereArgs: [id]);
+  }
+
+  static Future<List<String>> getGrupAdlari() async {
+    final database = await db;
+    final rows = await database.query('gruplar', columns: ['id', 'grupAdi'], orderBy: 'grupAdi ASC');
+    return rows.map((r) => r['grupAdi'] as String).toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> getGruplarSimple() async {
+    final database = await db;
+    final rows = await database.query('gruplar', columns: ['id', 'grupAdi', 'tarih'], orderBy: 'grupAdi ASC');
+    return rows.map((r) => Map<String, dynamic>.from(r)).toList();
   }
 
   // ─── FİRMALAR ──────────────────────────────────────
@@ -157,6 +205,9 @@ class DatabaseService {
         'telefon': row['telefon'] ?? '',
         'mail': row['mail'] ?? '',
         'durum': row['durum'],
+        'ziyaretTarihi': row['ziyaretTarihi'] != null
+            ? DateTime.parse(row['ziyaretTarihi'] as String)
+            : null,
         'notlar': notlar,
         'raporlar': raporlar,
         'belgeler': belgeler,
@@ -165,11 +216,77 @@ class DatabaseService {
     return result;
   }
 
+  // Tüm firmalar (Firma Paneli için) — grup adıyla birlikte
+  static Future<List<Map<String, dynamic>>> getAllFirmalar() async {
+    final database = await db;
+    final rows = await database.rawQuery('''
+      SELECT f.*, g.grupAdi
+      FROM firmalar f
+      LEFT JOIN gruplar g ON f.grupId = g.id
+      ORDER BY f.isim COLLATE NOCASE ASC
+    ''');
+    return rows.map((row) => {
+      'id': row['id'],
+      'grupId': row['grupId'],
+      'grupAdi': row['grupAdi'],
+      'isim': row['isim'],
+      'telefon': row['telefon'] ?? '',
+      'mail': row['mail'] ?? '',
+      'durum': row['durum'],
+      'ziyaretTarihi': row['ziyaretTarihi'] != null
+          ? DateTime.parse(row['ziyaretTarihi'] as String)
+          : null,
+    }).toList();
+  }
+
+  static Future<Map<String, dynamic>?> getFirmaById(int id) async {
+    final database = await db;
+    final rows = await database.rawQuery('''
+      SELECT f.*, g.grupAdi
+      FROM firmalar f
+      LEFT JOIN gruplar g ON f.grupId = g.id
+      WHERE f.id = ?
+    ''', [id]);
+    if (rows.isEmpty) return null;
+    final row = rows.first;
+    final notlar = await getNotlar(id);
+    final raporlar = await getGorselRaporlar(id);
+    final belgeler = await getBelgeler(id);
+    return {
+      'id': row['id'],
+      'grupId': row['grupId'],
+      'grupAdi': row['grupAdi'],
+      'isim': row['isim'],
+      'telefon': row['telefon'] ?? '',
+      'mail': row['mail'] ?? '',
+      'durum': row['durum'],
+      'ziyaretTarihi': row['ziyaretTarihi'] != null
+          ? DateTime.parse(row['ziyaretTarihi'] as String)
+          : null,
+      'notlar': notlar,
+      'raporlar': raporlar,
+      'belgeler': belgeler,
+    };
+  }
+
   static Future<int> insertFirma(
       int grupId, String isim, String telefon, String mail) async {
     final database = await db;
     return database.insert('firmalar', {
       'grupId': grupId,
+      'isim': isim,
+      'telefon': telefon,
+      'mail': mail,
+      'durum': 'NORMAL',
+    });
+  }
+
+  // Grupsuz firma oluştur (Firma Paneli için)
+  static Future<int> insertFirmaStandalone(
+      String isim, String telefon, String mail) async {
+    final database = await db;
+    return database.insert('firmalar', {
+      'grupId': null,
       'isim': isim,
       'telefon': telefon,
       'mail': mail,
@@ -198,6 +315,27 @@ class DatabaseService {
     );
   }
 
+  static Future<void> assignFirmaToGrup(int firmaId, int? grupId) async {
+    final database = await db;
+    await database.update(
+      'firmalar',
+      {'grupId': grupId},
+      where: 'id = ?',
+      whereArgs: [firmaId],
+    );
+  }
+
+  static Future<void> updateFirmaZiyaretTarihi(
+      int firmaId, DateTime? tarih) async {
+    final database = await db;
+    await database.update(
+      'firmalar',
+      {'ziyaretTarihi': tarih?.toIso8601String()},
+      where: 'id = ?',
+      whereArgs: [firmaId],
+    );
+  }
+
   static Future<void> deleteFirma(int id) async {
     final database = await db;
     await database.delete('firmalar', where: 'id = ?', whereArgs: [id]);
@@ -214,8 +352,8 @@ class DatabaseService {
       orderBy: 'id ASC',
     );
     return rows.map((row) {
-      final paths = (jsonDecode(row['fotoPaths'] as String) as List)
-          .cast<String>();
+      final paths =
+          (jsonDecode(row['fotoPaths'] as String) as List).cast<String>();
       return {
         'id': row['id'],
         'firmaId': row['firmaId'],
@@ -254,8 +392,8 @@ class DatabaseService {
       orderBy: 'tarih DESC',
     );
     return rows.map((row) {
-      final paths = (jsonDecode(row['fotoPaths'] as String) as List)
-          .cast<String>();
+      final paths =
+          (jsonDecode(row['fotoPaths'] as String) as List).cast<String>();
       return {
         'id': row['id'],
         'firmaId': row['firmaId'],
@@ -291,7 +429,6 @@ class DatabaseService {
     await database.delete('gorsel_raporlar', where: 'id = ?', whereArgs: [id]);
   }
 
-  // Tüm görsel raporlar (Raporlar modülü için)
   static Future<List<Map<String, dynamic>>> getAllGorselRaporlar() async {
     final database = await db;
     final rows = await database.rawQuery('''
@@ -301,8 +438,8 @@ class DatabaseService {
       ORDER BY gr.tarih DESC
     ''');
     return rows.map((row) {
-      final paths = (jsonDecode(row['fotoPaths'] as String) as List)
-          .cast<String>();
+      final paths =
+          (jsonDecode(row['fotoPaths'] as String) as List).cast<String>();
       return {
         'id': row['id'],
         'firmaId': row['firmaId'],
@@ -332,6 +469,9 @@ class DatabaseService {
           'dosyaYolu': row['dosyaYolu'],
           'tur': row['tur'],
           'eklemeTarihi': DateTime.parse(row['eklemeTarihi'] as String),
+          'gecerlilikTarihi': row['gecerlilikTarihi'] != null
+              ? DateTime.parse(row['gecerlilikTarihi'] as String)
+              : null,
         }).toList();
   }
 
@@ -340,6 +480,7 @@ class DatabaseService {
     required String baslik,
     required String dosyaYolu,
     required String tur,
+    DateTime? gecerlilikTarihi,
   }) async {
     final database = await db;
     return database.insert('belgeler', {
@@ -348,6 +489,7 @@ class DatabaseService {
       'dosyaYolu': dosyaYolu,
       'tur': tur,
       'eklemeTarihi': DateTime.now().toIso8601String(),
+      'gecerlilikTarihi': gecerlilikTarihi?.toIso8601String(),
     });
   }
 
@@ -356,12 +498,12 @@ class DatabaseService {
     await database.delete('belgeler', where: 'id = ?', whereArgs: [id]);
   }
 
-  // Denetim özeti (Raporlar modülü için)
+  // ─── RAPORLAR MODÜLü ────────────────────────────────
+
   static Future<Map<String, int>> getDenetimOzeti() async {
     final database = await db;
-    final rows = await database.rawQuery('''
-      SELECT durum, COUNT(*) as sayi FROM firmalar GROUP BY durum
-    ''');
+    final rows = await database
+        .rawQuery('SELECT durum, COUNT(*) as sayi FROM firmalar GROUP BY durum');
     final Map<String, int> ozet = {
       'NORMAL': 0,
       'GİDİLDİ': 0,

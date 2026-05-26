@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'saha_denetim_screen.dart';
-
+import '../pages/raporlar_page.dart';
 import '../widgets/app_drawer.dart';
 
 class AnaEkran extends StatelessWidget {
@@ -177,8 +177,12 @@ class AnaEkran extends StatelessWidget {
                 aciklama: "Denetim sonuçları ve istatistikler",
                 icon: Icons.bar_chart_outlined,
                 renk: Colors.blueAccent,
-                onTap: () {},
-                pasif: true,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const RaporlarPage()),
+                  );
+                },
               ),
               const SizedBox(height: 10),
               _ModulKart(

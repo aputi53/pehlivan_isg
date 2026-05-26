@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'package:pehlivan_isg/pages/gorsel_rapor_page.dart';
+import 'package:pehlivan_isg/services/database_service.dart';
+import 'package:pehlivan_isg/widgets/belgeler_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -16,38 +18,62 @@ class SahaDenetimScreen extends StatefulWidget {
 }
 
 class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
-  List<Map<String, dynamic>> gruplar = [
-    {
-      "grupAdi": "GRUP 1",
-      "tarih": DateTime(2026, 5, 10),
-      "firmalar": [
-        {
-          "isim": "A FİRMA",
-          "telefon": "555",
-          "mail": "a@mail.com",
-          "durum": "NORMAL",
-          "notlar": <FirmaNot>[],
-        }
-      ]
-    },
-    {
-      "grupAdi": "GRUP 2",
-      "tarih": DateTime(2026, 5, 11),
-      "firmalar": [
-        {
-          "isim": "B FİRMA",
-          "telefon": "555",
-          "mail": "b@mail.com",
-          "durum": "NORMAL",
-          "notlar": <FirmaNot>[],
-        }
-      ]
-    }
-  ];
+  List<Map<String, dynamic>> gruplar = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final dbGruplar = await DatabaseService.getGruplar();
+    final converted = dbGruplar.map((g) {
+      final firmalar = (g['firmalar'] as List<Map<String, dynamic>>).map((f) {
+        final dbNotlar = (f['notlar'] as List<Map<String, dynamic>>)
+            .map((n) => FirmaNot(
+                  id: n['id'] as int,
+                  metin: n['metin'] as String,
+                  zaman: n['zaman'] as DateTime,
+                  fotoPaths: List<String>.from(n['fotoPaths']),
+                ))
+            .toList();
+        final dbRaporlar = (f['raporlar'] as List<Map<String, dynamic>>)
+            .map((r) => GorselRapor(
+                  id: r['id'] as String,
+                  tarih: r['tarih'] as DateTime,
+                  fotoPaths: List<String>.from(r['fotoPaths']),
+                  baslik: r['baslik'] as String,
+                  rapor: r['rapor'] as String,
+                ))
+            .toList();
+        return {
+          'id': f['id'],
+          'grupId': f['grupId'],
+          'isim': f['isim'],
+          'telefon': f['telefon'] ?? '',
+          'mail': f['mail'] ?? '',
+          'durum': f['durum'],
+          'notlar': dbNotlar,
+          'raporlar': dbRaporlar,
+          'belgeler': f['belgeler'],
+        };
+      }).toList();
+      return {
+        'id': g['id'],
+        'grupAdi': g['grupAdi'],
+        'tarih': g['tarih'],
+        'firmalar': firmalar,
+      };
+    }).toList();
+
+    if (mounted) setState(() { gruplar = converted; _loading = false; });
+  }
 
   void yeniGrupEklePopup() {
     final grupAdController = TextEditingController();
-    DateTime secilenTarih = DateTime.now();
+    final DateTime secilenTarih = DateTime.now();
 
     showDialog(
       context: context,
@@ -72,16 +98,19 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
               onPressed: () => Navigator.pop(context),
               child: const Text("İPTAL")),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               if (grupAdController.text.isNotEmpty) {
+                final id = await DatabaseService.insertGrup(
+                    grupAdController.text, secilenTarih);
                 setState(() {
                   gruplar.add({
+                    "id": id,
                     "grupAdi": grupAdController.text,
                     "tarih": secilenTarih,
                     "firmalar": [],
                   });
                 });
-                Navigator.pop(context);
+                if (context.mounted) Navigator.pop(context);
               }
             },
             child: const Text("OLUŞTUR"),
@@ -123,18 +152,28 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
                 decoration: const InputDecoration(labelText: "E-posta")),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
+                final grupId = gruplar[grupIndex]["id"] as int;
+                final id = await DatabaseService.insertFirma(
+                  grupId,
+                  adController.text,
+                  telController.text,
+                  mailController.text,
+                );
                 setState(() {
                   gruplar[grupIndex]["firmalar"].add({
+                    "id": id,
+                    "grupId": grupId,
                     "isim": adController.text,
                     "telefon": telController.text,
                     "mail": mailController.text,
                     "durum": "NORMAL",
                     "notlar": <FirmaNot>[],
                     "raporlar": <GorselRapor>[],
+                    "belgeler": <Map<String, dynamic>>[],
                   });
                 });
-                Navigator.pop(context);
+                if (context.mounted) Navigator.pop(context);
               },
               child: const Text("EKLE"),
             ),
@@ -177,7 +216,11 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
         child: child!,
       ),
     );
-    if (secilen != null) setState(() => gruplar[g]["tarih"] = secilen);
+    if (secilen != null) {
+      await DatabaseService.updateGrup(
+          gruplar[g]["id"] as int, gruplar[g]["grupAdi"] as String, secilen);
+      setState(() => gruplar[g]["tarih"] = secilen);
+    }
   }
 
   void _grupSilOnay(int g) {
@@ -197,42 +240,24 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
             child: const Text("Hayır"),
           ),
           ElevatedButton(
-            onPressed: () {
-              final silinen = {
-                "grupAdi": gruplar[g]["grupAdi"],
-                "tarih": gruplar[g]["tarih"],
-                "firmalar": (gruplar[g]["firmalar"] as List)
-                    .map((f) => Map<String, dynamic>.from(f))
-                    .toList(),
-              };
-              final gIndex = g;
-
+            onPressed: () async {
+              final grupId = gruplar[g]["id"] as int;
+              await DatabaseService.deleteGrup(grupId);
               setState(() => gruplar.removeAt(g));
-              Navigator.pop(context);
-              Navigator.pop(context);
-
-              ScaffoldMessenger.of(context).clearSnackBars();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text("$grupAdi silindi"),
-                  action: SnackBarAction(
-                    label: "Geri Al",
-                    textColor: Colors.amber,
-                    onPressed: () {
-                      setState(() {
-                        gruplar.insert(
-                          gIndex.clamp(0, gruplar.length),
-                          silinen,
-                        );
-                      });
-                    },
+              if (context.mounted) Navigator.pop(context);
+              if (context.mounted) Navigator.pop(context);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).clearSnackBars();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text("$grupAdi silindi"),
+                    behavior: SnackBarBehavior.floating,
+                    backgroundColor: const Color(0xFF1F2937),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
                   ),
-                  behavior: SnackBarBehavior.floating,
-                  backgroundColor: const Color(0xFF1F2937),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                ),
-              );
+                );
+              }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text("Evet, Sil"),
@@ -390,10 +415,14 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () {
-                          setState(
-                                  () => grup["grupAdi"] = isimController.text);
-                          Navigator.pop(sheetCtx);
+                        onPressed: () async {
+                          await DatabaseService.updateGrup(
+                            grup["id"] as int,
+                            isimController.text,
+                            gruplar[g]["tarih"] as DateTime,
+                          );
+                          setState(() => grup["grupAdi"] = isimController.text);
+                          if (sheetCtx.mounted) Navigator.pop(sheetCtx);
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.amber,
@@ -434,46 +463,33 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
             child: const Text("Hayır"),
           ),
           ElevatedButton(
-            onPressed: () {
-              final firmaKopya = Map<String, dynamic>.from(firma);
+            onPressed: () async {
+              final firmaId = firma["id"] as int;
               final grupIndex = g;
               final firmaIndex = f;
 
-              Navigator.pop(dialogCtx);
-              Navigator.pop(anaContext);
+              await DatabaseService.deleteFirma(firmaId);
+
+              if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+              if (anaContext.mounted) Navigator.pop(anaContext);
 
               setState(() {
                 gruplar[grupIndex]["firmalar"].removeAt(firmaIndex);
               });
 
-              ScaffoldMessenger.of(anaContext).clearSnackBars();
-              ScaffoldMessenger.of(anaContext).showSnackBar(
-                SnackBar(
-                  content: Text("$firmaIsim silindi"),
-                  duration: const Duration(seconds: 4),
-                  action: SnackBarAction(
-                    label: "Geri Al",
-                    textColor: Colors.amber,
-                    onPressed: () {
-                      setState(() {
-                        final mevcutListe =
-                        List<Map<String, dynamic>>.from(
-                            gruplar[grupIndex]["firmalar"]);
-                        mevcutListe.insert(
-                          firmaIndex.clamp(0, mevcutListe.length),
-                          firmaKopya,
-                        );
-                        gruplar[grupIndex]["firmalar"] = mevcutListe;
-                      });
-                    },
+              if (anaContext.mounted) {
+                ScaffoldMessenger.of(anaContext).clearSnackBars();
+                ScaffoldMessenger.of(anaContext).showSnackBar(
+                  SnackBar(
+                    content: Text("$firmaIsim silindi"),
+                    behavior: SnackBarBehavior.floating,
+                    backgroundColor: const Color(0xFF1F2937),
+                    margin: const EdgeInsets.all(20),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
                   ),
-                  behavior: SnackBarBehavior.floating,
-                  backgroundColor: const Color(0xFF1F2937),
-                  margin: const EdgeInsets.all(20),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                ),
-              );
+                );
+              }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text("Evet, Sil"),
@@ -520,7 +536,9 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
           ),
         ],
       ),
-      body: gruplar.isEmpty
+      body: _loading
+          ? const Center(child: CircularProgressIndicator(color: Colors.amber))
+          : gruplar.isEmpty
           ? const Center(
           child: Text("Henüz grup yok",
               style: TextStyle(color: Colors.white38)))
@@ -739,7 +757,7 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     firma = widget.gruplar[widget.grupIndex]["firmalar"][widget.firmaIndex];
     isimCtrl = TextEditingController(text: firma["isim"] ?? "");
     telCtrl = TextEditingController(text: firma["telefon"] ?? "");
@@ -801,14 +819,21 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
     );
   }
 
-  void _notEkle() {
+  Future<void> _notEkle() async {
     final metin = _notCtrl.text.trim();
     if (metin.isEmpty && _seciliFotoPaths.isEmpty) return;
 
+    final firmaId = firma["id"] as int;
+    final zaman = DateTime.now();
+    final fotolar = List<String>.from(_seciliFotoPaths);
+
+    final id = await DatabaseService.insertNot(firmaId, metin, zaman, fotolar);
+
     final yeniNot = FirmaNot(
+      id: id,
       metin: metin,
-      zaman: DateTime.now(),
-      fotoPaths: List.from(_seciliFotoPaths),
+      zaman: zaman,
+      fotoPaths: fotolar,
     );
 
     setState(() {
@@ -819,10 +844,13 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
     widget.onStateChange();
   }
 
-  void _notSil(int index) {
-    setState(() {
-      (firma["notlar"] as List<FirmaNot>).removeAt(index);
-    });
+  Future<void> _notSil(int index) async {
+    final notlar = firma["notlar"] as List<FirmaNot>;
+    final not = notlar[index];
+    if (not.id != null) {
+      await DatabaseService.deleteNot(not.id!);
+    }
+    setState(() => notlar.removeAt(index));
     widget.onStateChange();
   }
 
@@ -931,7 +959,8 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
                       ],
                     ),
                   ),
-                  const Tab(text: "Görsel Rapor"), // 3. Sekme başlığımız premium tasarıma dahil oldu
+                  const Tab(text: "Görsel Rapor"),
+                  const Tab(text: "Belgeler"),
                 ],
               ),
             ),
@@ -964,9 +993,10 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
                             icon: Icons.check_circle_outline,
                             renk: Colors.green,
                             secili: durum == "GİDİLDİ",
-                            onTap: () {
-                              setState(() => firma["durum"] =
-                              durum == "GİDİLDİ" ? "NORMAL" : "GİDİLDİ");
+                            onTap: () async {
+                              final yeni = durum == "GİDİLDİ" ? "NORMAL" : "GİDİLDİ";
+                              await DatabaseService.updateFirmaDurum(firma["id"] as int, yeni);
+                              setState(() => firma["durum"] = yeni);
                               widget.onStateChange();
                             },
                           ),
@@ -976,9 +1006,10 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
                             icon: Icons.cancel_outlined,
                             renk: Colors.red,
                             secili: durum == "GİDİLMEDİ",
-                            onTap: () {
-                              setState(() => firma["durum"] =
-                              durum == "GİDİLMEDİ" ? "NORMAL" : "GİDİLMEDİ");
+                            onTap: () async {
+                              final yeni = durum == "GİDİLMEDİ" ? "NORMAL" : "GİDİLMEDİ";
+                              await DatabaseService.updateFirmaDurum(firma["id"] as int, yeni);
+                              setState(() => firma["durum"] = yeni);
                               widget.onStateChange();
                             },
                           ),
@@ -988,9 +1019,10 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
                             icon: Icons.person_off_outlined,
                             renk: Colors.orange,
                             secili: durum == "KİMSE_YOK",
-                            onTap: () {
-                              setState(() => firma["durum"] =
-                              durum == "KİMSE_YOK" ? "NORMAL" : "KİMSE_YOK");
+                            onTap: () async {
+                              final yeni = durum == "KİMSE_YOK" ? "NORMAL" : "KİMSE_YOK";
+                              await DatabaseService.updateFirmaDurum(firma["id"] as int, yeni);
+                              setState(() => firma["durum"] = yeni);
                               widget.onStateChange();
                             },
                           ),
@@ -1165,8 +1197,14 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
                         children: [
                           Expanded(
                             child: GestureDetector(
-                              onTap: () {
+                              onTap: () async {
                                 if (editMode) {
+                                  await DatabaseService.updateFirma(
+                                    firma["id"] as int,
+                                    isimCtrl.text,
+                                    telCtrl.text,
+                                    mailCtrl.text,
+                                  );
                                   setState(() {
                                     firma["isim"] = isimCtrl.text;
                                     firma["telefon"] = telCtrl.text;
@@ -1310,10 +1348,19 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
                     ],
                   ),
 
-                  /* ========== 3. SEKME: GÖRSEL RAPOR MODÜLÜ ========== */
+                  /* ========== 3. SEKME: GÖRSEL RAPOR ========== */
                   GorselRaporPage(
                     firmaAdi: firma["isim"] ?? "Bilinmeyen Firma",
-                    raporlar: (firma["raporlar"] as List<dynamic>?)?.cast<GorselRapor>() ?? [],
+                    firmaId: firma["id"] as int,
+                    raporlar: (firma["raporlar"] as List?)?.cast<GorselRapor>() ?? [],
+                  ),
+
+                  /* ========== 4. SEKME: BELGELER ========== */
+                  BelgelerWidget(
+                    firmaId: firma["id"] as int,
+                    belgeler: (firma["belgeler"] as List?)
+                            ?.cast<Map<String, dynamic>>() ??
+                        [],
                   ),
 
                 ], // TabBarView'in ana listesini kapatan parantez
@@ -1628,11 +1675,13 @@ class _DurumButon extends StatelessWidget {
   }
 }
 class FirmaNot {
+  int? id;
   String metin;
   DateTime zaman;
   List<String> fotoPaths;
 
   FirmaNot({
+    this.id,
     required this.metin,
     required this.zaman,
     required this.fotoPaths,

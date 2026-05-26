@@ -75,10 +75,83 @@ class _FirmaDetayPageState extends State<FirmaDetayPage>
           ),
           ElevatedButton(
             onPressed: () async {
+              final savedFirma = Map<String, dynamic>.from(_firma!);
+              final savedNotlar = _notlar
+                  .map((n) => Map<String, dynamic>.from(n))
+                  .toList();
+              final savedRaporlar = List<GorselRapor>.from(_raporlar);
+              final savedBelgeler = _belgeler
+                  .map((b) => Map<String, dynamic>.from(b))
+                  .toList();
+
               await DatabaseService.deleteFirma(widget.firmaId);
-              if (context.mounted) {
-                Navigator.pop(context); // dialog
-                Navigator.pop(context); // detay page
+              if (context.mounted) Navigator.pop(context); // dialog
+
+              if (!mounted) return;
+
+              bool undone = false;
+              final snackCtrl =
+                  ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text("${savedFirma['isim']} silindi"),
+                  action: SnackBarAction(
+                    label: "Geri Al",
+                    textColor: Colors.amber,
+                    onPressed: () async {
+                      undone = true;
+                      final newId =
+                          await DatabaseService.insertFirmaStandalone(
+                        savedFirma['isim'] as String,
+                        savedFirma['telefon'] as String? ?? '',
+                        savedFirma['mail'] as String? ?? '',
+                      );
+                      if (savedFirma['grupId'] != null) {
+                        await DatabaseService.assignFirmaToGrup(
+                            newId, savedFirma['grupId'] as int);
+                      }
+                      for (final n in savedNotlar) {
+                        await DatabaseService.insertNot(
+                            newId,
+                            n['metin'] as String,
+                            n['zaman'] as DateTime,
+                            List<String>.from(n['fotoPaths'] as List));
+                      }
+                      for (final r in savedRaporlar) {
+                        await DatabaseService.insertGorselRapor(
+                          id: r.id,
+                          firmaId: newId,
+                          baslik: r.baslik,
+                          rapor: r.rapor,
+                          tarih: r.tarih,
+                          fotoPaths: r.fotoPaths,
+                        );
+                      }
+                      for (final b in savedBelgeler) {
+                        await DatabaseService.insertBelge(
+                          firmaId: newId,
+                          baslik: b['baslik'] as String,
+                          dosyaYolu: b['dosyaYolu'] as String,
+                          tur: b['tur'] as String,
+                          gecerlilikTarihi:
+                              b['gecerlilikTarihi'] as DateTime?,
+                        );
+                      }
+                      if (mounted) Navigator.pop(context);
+                    },
+                  ),
+                  duration: const Duration(seconds: 5),
+                  behavior: SnackBarBehavior.floating,
+                  backgroundColor: const Color(0xFF1F2937),
+                  margin: const EdgeInsets.all(16),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+              );
+
+              final reason = await snackCtrl.closed;
+              if (!undone && mounted &&
+                  reason != SnackBarClosedReason.action) {
+                Navigator.pop(context); // pop detail page
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
@@ -179,6 +252,7 @@ class _GenelTab extends StatefulWidget {
 
 class _GenelTabState extends State<_GenelTab> {
   List<Map<String, dynamic>> _gruplar = [];
+  bool _gruplarLoaded = false;
 
   @override
   void initState() {
@@ -188,7 +262,7 @@ class _GenelTabState extends State<_GenelTab> {
 
   Future<void> _loadGruplar() async {
     final g = await DatabaseService.getGruplarSimple();
-    if (mounted) setState(() => _gruplar = g);
+    if (mounted) setState(() { _gruplar = g; _gruplarLoaded = true; });
   }
 
   void _editSheet() {
@@ -439,30 +513,39 @@ class _GenelTabState extends State<_GenelTab> {
                   style: TextStyle(
                       color: Colors.grey, fontSize: 12)),
               const SizedBox(height: 8),
-              DropdownButtonFormField<int?>(
-                key: ValueKey(grupId),
-                initialValue: grupId,
-                dropdownColor: const Color(0xFF161B22),
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: const Color(0xFF0D1117),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 10),
-                ),
-                items: [
-                  const DropdownMenuItem<int?>(
-                      value: null, child: Text("— Grupsuz —")),
-                  ..._gruplar.map((g) => DropdownMenuItem<int?>(
-                        value: g['id'] as int,
-                        child: Text(g['grupAdi'] as String),
-                      )),
-                ],
-                onChanged: (v) => _assignGrup(v),
-              ),
+              _gruplarLoaded
+                  ? DropdownButtonFormField<int?>(
+                      key: ValueKey(grupId),
+                      initialValue: _gruplar.any((g) => g['id'] == grupId)
+                          ? grupId
+                          : null,
+                      dropdownColor: const Color(0xFF161B22),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: const Color(0xFF0D1117),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                      ),
+                      items: [
+                        const DropdownMenuItem<int?>(
+                            value: null, child: Text("— Grupsuz —")),
+                        ..._gruplar.map((g) => DropdownMenuItem<int?>(
+                              value: g['id'] as int,
+                              child: Text(g['grupAdi'] as String),
+                            )),
+                      ],
+                      onChanged: (v) => _assignGrup(v),
+                    )
+                  : const SizedBox(
+                      height: 48,
+                      child: Center(
+                          child: CircularProgressIndicator(
+                              color: Colors.amber, strokeWidth: 2)),
+                    ),
               if (grupAdi != null) ...[
                 const SizedBox(height: 6),
                 Text(
@@ -651,7 +734,8 @@ class _NotlarTab extends StatelessWidget {
     );
   }
 
-  void _deleteNot(BuildContext context, int id) {
+  void _deleteNot(BuildContext context, Map<String, dynamic> not) {
+    final id = not['id'] as int;
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -668,6 +752,32 @@ class _NotlarTab extends StatelessWidget {
               await DatabaseService.deleteNot(id);
               if (context.mounted) Navigator.pop(context);
               onChanged();
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).clearSnackBars();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text("Not silindi"),
+                  action: SnackBarAction(
+                    label: "Geri Al",
+                    textColor: Colors.amber,
+                    onPressed: () async {
+                      await DatabaseService.insertNot(
+                        firmaId,
+                        not['metin'] as String,
+                        not['zaman'] as DateTime,
+                        List<String>.from(not['fotoPaths'] as List),
+                      );
+                      onChanged();
+                    },
+                  ),
+                  duration: const Duration(seconds: 5),
+                  behavior: SnackBarBehavior.floating,
+                  backgroundColor: const Color(0xFF1F2937),
+                  margin: const EdgeInsets.all(16),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+              );
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text("Sil"),
@@ -729,8 +839,7 @@ class _NotlarTab extends StatelessWidget {
                               ),
                               const Spacer(),
                               GestureDetector(
-                                onTap: () => _deleteNot(
-                                    context, n['id'] as int),
+                                onTap: () => _deleteNot(context, n),
                                 child: const Icon(
                                     Icons.delete_outline,
                                     color: Colors.red,

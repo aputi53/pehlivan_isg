@@ -31,12 +31,14 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
   ];
 
   void _belgeSilOnay(int index) {
+    final belge = widget.belgeler[index];
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: const Color(0xFF161B22),
         title: const Text("Belgeyi Sil"),
-        content: const Text("Bu belge silinsin mi?"),
+        content: Text(
+            "${belge['baslik'] ?? 'Bu belge'} silinsin mi?"),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -44,10 +46,39 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
           ),
           ElevatedButton(
             onPressed: () async {
-              final id = widget.belgeler[index]['id'] as int;
+              final id = belge['id'] as int;
               await DatabaseService.deleteBelge(id);
               setState(() => widget.belgeler.removeAt(index));
               if (context.mounted) Navigator.pop(context);
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).clearSnackBars();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text("Belge silindi"),
+                  action: SnackBarAction(
+                    label: "Geri Al",
+                    textColor: Colors.amber,
+                    onPressed: () async {
+                      final newId = await DatabaseService.insertBelge(
+                        firmaId: widget.firmaId,
+                        baslik: belge['baslik'] as String,
+                        dosyaYolu: belge['dosyaYolu'] as String,
+                        tur: belge['tur'] as String,
+                        gecerlilikTarihi:
+                            belge['gecerlilikTarihi'] as DateTime?,
+                      );
+                      setState(() => widget.belgeler.insert(
+                          index, {...belge, 'id': newId}));
+                    },
+                  ),
+                  duration: const Duration(seconds: 5),
+                  behavior: SnackBarBehavior.floating,
+                  backgroundColor: const Color(0xFF1F2937),
+                  margin: const EdgeInsets.all(16),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+              );
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text("Sil"),

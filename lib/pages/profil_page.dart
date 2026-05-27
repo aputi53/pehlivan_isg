@@ -30,7 +30,9 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
   String employeeId = "ISG-2024-001";
   String certLevel = "A Sınıfı";
   String experience = "8 Yıl";
-  String? profileImageBase64; // DEĞİŞİKLİK: File yerine String kullanıyoruz
+  String? profileImageBase64;
+  String companyName = '';
+  String? companyLogoBase64;
 
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
@@ -62,6 +64,8 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
     final savedCert = await _storage.read(key: "user_cert");
     final savedExp = await _storage.read(key: "user_exp");
     final savedImg = await _storage.read(key: "user_image_base64");
+    final savedCompany = await _storage.read(key: "user_company");
+    final savedCompanyLogo = await _storage.read(key: "user_company_logo");
 
     setState(() {
       if (savedName != null) name = savedName;
@@ -73,6 +77,8 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
       if (savedCert != null) certLevel = savedCert;
       if (savedExp != null) experience = savedExp;
       if (savedImg != null) profileImageBase64 = savedImg;
+      if (savedCompany != null) companyName = savedCompany;
+      companyLogoBase64 = savedCompanyLogo;
     });
   }
 
@@ -142,6 +148,13 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
                 _infoTile(Icons.domain_outlined, "Departman", department),
                 _infoTile(Icons.fingerprint_outlined, "Sicil No", employeeId),
                 _infoTile(Icons.workspace_premium_outlined, "Sınıf", certLevel),
+
+                if (companyName.isNotEmpty || companyLogoBase64 != null) ...[
+                  const SizedBox(height: 20),
+                  _buildSectionTitle("Firma Bilgileri"),
+                  const SizedBox(height: 10),
+                  _buildCompanyTile(),
+                ],
 
                 const SizedBox(height: 28),
 
@@ -414,6 +427,64 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
     );
   }
 
+  // ── COMPANY TILE ──────────────────────────────────────────────────────────
+  Widget _buildCompanyTile() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF10151F),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A2035),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                  color: const Color(0xFFE8B84B).withValues(alpha: 0.25)),
+            ),
+            child: companyLogoBase64 != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(9),
+                    child: Image.memory(
+                      base64Decode(companyLogoBase64!),
+                      fit: BoxFit.contain,
+                    ),
+                  )
+                : const Icon(Icons.business_outlined,
+                    color: Color(0xFFE8B84B), size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("Firma",
+                    style: TextStyle(
+                        color: Colors.white38,
+                        fontSize: 11,
+                        letterSpacing: 0.5)),
+                const SizedBox(height: 3),
+                Text(
+                  companyName.isNotEmpty ? companyName : "Firma adı girilmedi",
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ── EDIT BUTTON ───────────────────────────────────────────────────────────
   Widget _buildEditButton() {
     return Padding(
@@ -508,6 +579,8 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
           certLevel: certLevel,
           experience: experience,
           profileImageBase64: profileImageBase64,
+          companyName: companyName,
+          companyLogoBase64: companyLogoBase64,
         ),
       ),
     );
@@ -526,6 +599,14 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
       if (result["profileImageBase64"] != null) {
         await _storage.write(key: "user_image_base64", value: result["profileImageBase64"]);
       }
+      if (result["companyName"] != null) {
+        await _storage.write(key: "user_company", value: result["companyName"]);
+      }
+      if (result["companyLogoBase64"] != null) {
+        await _storage.write(key: "user_company_logo", value: result["companyLogoBase64"]);
+      } else {
+        await _storage.delete(key: "user_company_logo");
+      }
 
       // 2. Arayüzün anlık güncellenmesi için state'i yeniliyoruz
       setState(() {
@@ -540,6 +621,8 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
         if (result["profileImageBase64"] != null) {
           profileImageBase64 = result["profileImageBase64"];
         }
+        companyName = result["companyName"] ?? companyName;
+        companyLogoBase64 = result["companyLogoBase64"];
       });
     }
   }

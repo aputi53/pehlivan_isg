@@ -14,6 +14,8 @@ class EditProfilePage extends StatefulWidget {
   final String certLevel;
   final String experience;
   final String? profileImageBase64;
+  final String companyName;
+  final String? companyLogoBase64;
 
   const EditProfilePage({
     super.key,
@@ -26,6 +28,8 @@ class EditProfilePage extends StatefulWidget {
     required this.certLevel,
     required this.experience,
     this.profileImageBase64,
+    this.companyName = '',
+    this.companyLogoBase64,
   });
 
   @override
@@ -48,8 +52,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
   late TextEditingController departmentController;
   late TextEditingController employeeIdController;
   late TextEditingController experienceController;
+  late TextEditingController companyNameController;
 
   String? _base64Image;
+  String? _companyLogoBase64;
   String _selectedCertLevel = "A Sınıfı";
   final _formKey = GlobalKey<FormState>();
 
@@ -65,7 +71,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
     departmentController = TextEditingController(text: widget.department);
     employeeIdController = TextEditingController(text: widget.employeeId);
     experienceController = TextEditingController(text: widget.experience);
+    companyNameController = TextEditingController(text: widget.companyName);
     _base64Image = widget.profileImageBase64;
+    _companyLogoBase64 = widget.companyLogoBase64;
     _selectedCertLevel = widget.certLevel;
   }
 
@@ -78,6 +86,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     departmentController.dispose();
     employeeIdController.dispose();
     experienceController.dispose();
+    companyNameController.dispose();
     super.dispose();
   }
 
@@ -235,6 +244,19 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
               // CERT LEVEL DROPDOWN
               _buildDropdown(),
+
+              const SizedBox(height: 24),
+
+              // ── FIRMA BİLGİLERİ ────────────────────────────────────────
+              _sectionLabel("Firma Bilgileri"),
+              const SizedBox(height: 12),
+              _buildField(
+                controller: companyNameController,
+                label: "Çalıştığınız Firma Adı",
+                icon: Icons.business_outlined,
+              ),
+              const SizedBox(height: 12),
+              _buildCompanyLogoSection(),
 
               const SizedBox(height: 32),
 
@@ -404,6 +426,163 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
+  Widget _buildCompanyLogoSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF10151F),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A2035),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                  color: const Color(0xFFE8B84B).withValues(alpha: 0.3)),
+            ),
+            child: _companyLogoBase64 != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(11),
+                    child: Image.memory(
+                      base64Decode(_companyLogoBase64!),
+                      fit: BoxFit.contain,
+                    ),
+                  )
+                : const Icon(Icons.business_outlined,
+                    color: Color(0xFFE8B84B), size: 32),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Firma Logosu",
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  "PDF raporlarda sol üstte görünür",
+                  style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: _pickCompanyLogo,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE8B84B)
+                              .withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                              color: const Color(0xFFE8B84B)
+                                  .withValues(alpha: 0.3)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.upload_outlined,
+                                color: Color(0xFFE8B84B), size: 14),
+                            SizedBox(width: 5),
+                            Text("Logo Yükle",
+                                style: TextStyle(
+                                    color: Color(0xFFE8B84B),
+                                    fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (_companyLogoBase64 != null) ...[
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () =>
+                            setState(() => _companyLogoBase64 = null),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.delete_outline,
+                              color: Colors.redAccent, size: 14),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickCompanyLogo() async {
+    final picker = ImagePicker();
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: const Color(0xFF151C2E),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(top: 12, bottom: 20),
+              decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2)),
+            ),
+            const Text("Logo Seç",
+                style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16)),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined,
+                  color: Color(0xFFE8B84B)),
+              title:
+                  const Text("Kamera", style: TextStyle(color: Colors.white)),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined,
+                  color: Color(0xFFE8B84B)),
+              title:
+                  const Text("Galeri", style: TextStyle(color: Colors.white)),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+    final picked =
+        await picker.pickImage(source: source, imageQuality: 90);
+    if (picked != null) {
+      final bytes = await picked.readAsBytes();
+      setState(() => _companyLogoBase64 = base64Encode(bytes));
+    }
+  }
+
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final source = await showModalBottomSheet<ImageSource>(
@@ -465,6 +644,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
     final String finalExp = experienceController.text.trim();
 
     // Verileri doğrudan bu ekrandayken de şifreli hafızaya taahhüt ediyoruz
+    final finalCompany = companyNameController.text.trim();
+
     await _storage.write(key: "user_name", value: finalName);
     await _storage.write(key: "user_email", value: finalEmail);
     await _storage.write(key: "user_phone", value: finalPhone);
@@ -473,8 +654,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
     await _storage.write(key: "user_emp_id", value: finalEmpId);
     await _storage.write(key: "user_cert", value: _selectedCertLevel);
     await _storage.write(key: "user_exp", value: finalExp);
+    await _storage.write(key: "user_company", value: finalCompany);
     if (_base64Image != null) {
       await _storage.write(key: "user_image_base64", value: _base64Image);
+    }
+    if (_companyLogoBase64 != null) {
+      await _storage.write(
+          key: "user_company_logo", value: _companyLogoBase64);
+    } else {
+      await _storage.delete(key: "user_company_logo");
     }
 
     // ProfilPage'e haritayı pasla
@@ -489,6 +677,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
         "certLevel": _selectedCertLevel,
         "experience": finalExp,
         "profileImageBase64": _base64Image,
+        "companyName": finalCompany,
+        "companyLogoBase64": _companyLogoBase64,
       });
     }
   }

@@ -46,6 +46,7 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
                   fotoPaths: List<String>.from(r['fotoPaths']),
                   baslik: r['baslik'] as String,
                   rapor: r['rapor'] as String,
+                  firmaAdi: f['isim'] as String? ?? '',
                 ))
             .toList();
         return {
@@ -1026,7 +1027,7 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
                       ],
                     ),
                   ),
-                  const Tab(text: "Görsel Rapor"),
+                  const Tab(text: "AI Rapor"),
                   const Tab(text: "Belgeler"),
                 ],
               ),

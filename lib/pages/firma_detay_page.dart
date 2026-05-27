@@ -1039,23 +1039,40 @@ class _RaporlarTab extends StatelessWidget {
           child: FloatingActionButton(
             backgroundColor: Colors.amber,
             foregroundColor: Colors.black,
-            onPressed: () async {
-              final result = await Navigator.push<GorselRapor>(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const RaporOlusturPage()),
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                backgroundColor: const Color(0xFF161B22),
+                shape: const RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                builder: (_) => RaporTipiSecSheet(
+                  onSecim: (tip) async {
+                    Navigator.pop(context);
+                    final result = await Navigator.push<GorselRapor>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => RaporOlusturPage(
+                          firmaAdi: firmaAdi,
+                          raporTipi: tip,
+                        ),
+                      ),
+                    );
+                    if (result != null) {
+                      await DatabaseService.insertGorselRapor(
+                        id: result.id,
+                        firmaId: firmaId,
+                        baslik: result.baslik,
+                        rapor: result.rapor,
+                        tarih: result.tarih,
+                        fotoPaths: result.fotoPaths,
+                      );
+                      onChanged();
+                    }
+                  },
+                ),
               );
-              if (result != null) {
-                await DatabaseService.insertGorselRapor(
-                  id: result.id,
-                  firmaId: firmaId,
-                  baslik: result.baslik,
-                  rapor: result.rapor,
-                  tarih: result.tarih,
-                  fotoPaths: result.fotoPaths,
-                );
-                onChanged();
-              }
             },
             child: const Icon(Icons.add),
           ),

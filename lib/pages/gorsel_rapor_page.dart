@@ -1,16 +1,23 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:share_plus/share_plus.dart' show Share, XFile;
-import 'package:path_provider/path_provider.dart';
 
 import 'package:pehlivan_isg/services/database_service.dart';
+
+// ─────────────────────────────────────────────
+// RAPOR TİPİ
+// ─────────────────────────────────────────────
+enum RaporTipi { hizli, detayli }
 
 // ─────────────────────────────────────────────
 // MODEL
@@ -21,6 +28,7 @@ class GorselRapor {
   final List<String> fotoPaths;
   final String baslik;
   final String rapor;
+  final String firmaAdi;
 
   GorselRapor({
     required this.id,
@@ -28,44 +36,188 @@ class GorselRapor {
     required this.fotoPaths,
     required this.baslik,
     required this.rapor,
+    this.firmaAdi = '',
   });
 }
 
 // ─────────────────────────────────────────────
 // PDF YARDIMCI FONKSİYONLARI
 // ─────────────────────────────────────────────
+pw.TableRow _pdfTableRow(
+    pw.Font fontBold, pw.Font font, String label, String value) {
+  return pw.TableRow(
+    children: [
+      pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 5),
+        child: pw.Text(label, style: pw.TextStyle(font: fontBold, fontSize: 10)),
+      ),
+      pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 5),
+        child: pw.Text(':', style: pw.TextStyle(font: fontBold, fontSize: 10)),
+      ),
+      pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 5, left: 4),
+        child: pw.Text(value, style: pw.TextStyle(font: font, fontSize: 10)),
+      ),
+    ],
+  );
+}
+
+String _pdfFileName(String firmaAdi, String id) {
+  final s = firmaAdi
+      .replaceAll(RegExp(r'[<>:"/\\|?*\x00-\x1F]'), '')
+      .replaceAll(RegExp(r'\s+'), '_')
+      .trim();
+  return s.isNotEmpty ? '${s}_ISG_Raporu.pdf' : 'ISG_Raporu_$id.pdf';
+}
+
 Future<pw.Document> _buildPdfDoc(GorselRapor rapor) async {
-  final pdf = pw.Document();
+  const storage = FlutterSecureStorage(
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+      sharedPreferencesName: 'PehlivanISG_Storage',
+    ),
+  );
+  final userName = await storage.read(key: 'user_name') ?? '';
+  final userCert = await storage.read(key: 'user_cert') ?? '';
+  final userCompany = await storage.read(key: 'user_company') ?? '';
+  final logoB64 = await storage.read(key: 'user_company_logo');
 
-  final List<pw.Widget> icerik = [
-    pw.Text(
-      rapor.baslik,
-      style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
-    ),
-    pw.SizedBox(height: 6),
-    pw.Text(
-      "Tarih: ${rapor.tarih.day.toString().padLeft(2, '0')}.${rapor.tarih.month.toString().padLeft(2, '0')}.${rapor.tarih.year}",
-      style: const pw.TextStyle(fontSize: 11),
-    ),
-    pw.SizedBox(height: 2),
-    pw.Text(
-      "İş Sağlığı ve Güvenliği Görsel Denetim Raporu",
-      style: pw.TextStyle(fontSize: 10, fontStyle: pw.FontStyle.italic),
-    ),
-    pw.Divider(),
-    pw.SizedBox(height: 8),
-    pw.Text(rapor.rapor, style: const pw.TextStyle(fontSize: 11)),
-  ];
+  final font = await PdfGoogleFonts.notoSansRegular();
+  final fontBold = await PdfGoogleFonts.notoSansBold();
 
-  for (final path in rapor.fotoPaths) {
+  final tarihStr =
+      "${rapor.tarih.day.toString().padLeft(2, '0')}.${rapor.tarih.month.toString().padLeft(2, '0')}.${rapor.tarih.year}";
+
+  final List<pw.MemoryImage> fotoImages = [];
+  for (final path in rapor.fotoPaths.take(3)) {
     final file = File(path);
     if (await file.exists()) {
-      final bytes = await file.readAsBytes();
-      icerik.add(pw.SizedBox(height: 12));
-      icerik.add(pw.Image(pw.MemoryImage(bytes), height: 180));
+      fotoImages.add(pw.MemoryImage(await file.readAsBytes()));
     }
   }
 
+  pw.MemoryImage? logoImage;
+  if (logoB64 != null && logoB64.isNotEmpty) {
+    try {
+      logoImage = pw.MemoryImage(base64Decode(logoB64));
+    } catch (_) {}
+  }
+
+  const accentColor = PdfColor(0.91, 0.72, 0.29);
+
+  // ── Başlık alanı (logo sol üst)
+  final titleWidget = pw.Row(
+    crossAxisAlignment: pw.CrossAxisAlignment.center,
+    children: [
+      if (logoImage != null) ...[
+        pw.SizedBox(
+          width: 50,
+          height: 50,
+          child: pw.Image(logoImage, fit: pw.BoxFit.contain),
+        ),
+        pw.SizedBox(width: 12),
+      ],
+      pw.Expanded(
+        child: pw.Column(
+          crossAxisAlignment: logoImage != null
+              ? pw.CrossAxisAlignment.start
+              : pw.CrossAxisAlignment.center,
+          children: [
+            pw.Text(
+              'İş Güvenliği Tespit ve Öneri Raporu',
+              style: pw.TextStyle(font: fontBold, fontSize: 14),
+              textAlign: logoImage != null
+                  ? pw.TextAlign.left
+                  : pw.TextAlign.center,
+            ),
+            if (userCompany.isNotEmpty) ...[
+              pw.SizedBox(height: 3),
+              pw.Text(
+                userCompany,
+                style: pw.TextStyle(
+                    font: font, fontSize: 9, color: PdfColors.grey700),
+                textAlign: logoImage != null
+                    ? pw.TextAlign.left
+                    : pw.TextAlign.center,
+              ),
+            ],
+          ],
+        ),
+      ),
+    ],
+  );
+
+  // ── Sol bilgi tablosu (hizalı iki nokta)
+  final infoRows = <pw.TableRow>[
+    if (rapor.firmaAdi.isNotEmpty)
+      _pdfTableRow(fontBold, font, 'Firma Ünvanı', rapor.firmaAdi),
+    _pdfTableRow(fontBold, font, 'Rapor Adı', rapor.baslik),
+    _pdfTableRow(fontBold, font, 'Tarih', tarihStr),
+    if (userName.isNotEmpty)
+      _pdfTableRow(
+        fontBold,
+        font,
+        'Düzenleyen',
+        userCert.isNotEmpty
+            ? '$userName  —  $userCert İş Güvenliği Uzmanı'
+            : userName,
+      ),
+  ];
+
+  final infoTable = pw.Table(
+    columnWidths: const {
+      0: pw.FixedColumnWidth(82),
+      1: pw.FixedColumnWidth(8),
+      2: pw.FlexColumnWidth(),
+    },
+    defaultVerticalAlignment: pw.TableCellVerticalAlignment.top,
+    children: infoRows,
+  );
+
+  final headerSection = fotoImages.isNotEmpty
+      ? pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Expanded(flex: 3, child: infoTable),
+            pw.SizedBox(width: 12),
+            pw.Expanded(
+              flex: 2,
+              child: pw.Column(
+                children: fotoImages
+                    .map((img) => pw.Padding(
+                          padding: const pw.EdgeInsets.only(bottom: 4),
+                          child: pw.Image(img,
+                              height: 70, fit: pw.BoxFit.cover),
+                        ))
+                    .toList(),
+              ),
+            ),
+          ],
+        )
+      : infoTable;
+
+  final List<pw.Widget> icerik = [
+    titleWidget,
+    pw.SizedBox(height: 6),
+    pw.Divider(thickness: 1.5, color: accentColor),
+    pw.SizedBox(height: 12),
+    headerSection,
+    pw.SizedBox(height: 12),
+    pw.Divider(thickness: 0.5),
+    pw.SizedBox(height: 8),
+    ...rapor.rapor.split('\n').map(
+          (satir) => pw.Padding(
+            padding: const pw.EdgeInsets.only(bottom: 3),
+            child: pw.Text(
+              satir.isEmpty ? ' ' : satir,
+              style: pw.TextStyle(font: font, fontSize: 11),
+            ),
+          ),
+        ),
+  ];
+
+  final pdf = pw.Document();
   pdf.addPage(
     pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
@@ -77,13 +229,10 @@ Future<pw.Document> _buildPdfDoc(GorselRapor rapor) async {
   return pdf;
 }
 
-Future<File?> _pdfDosyasiOlustur(GorselRapor rapor) async {
+Future<Uint8List?> _pdfBytesOlustur(GorselRapor rapor) async {
   try {
     final pdf = await _buildPdfDoc(rapor);
-    final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/isg_rapor_${rapor.id}.pdf');
-    await file.writeAsBytes(await pdf.save());
-    return file;
+    return pdf.save();
   } catch (e) {
     debugPrint('PDF oluşturma hatası: $e');
     return null;
@@ -118,6 +267,41 @@ class _GorselRaporPageState extends State<GorselRaporPage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) => _RaporIslemleriSheet(rapor: rapor),
+    );
+  }
+
+  void _yeniAnalizSec() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF161B22),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => RaporTipiSecSheet(
+        onSecim: (tip) async {
+          Navigator.pop(context);
+          final result = await Navigator.push<GorselRapor>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => RaporOlusturPage(
+                firmaAdi: widget.firmaAdi,
+                raporTipi: tip,
+              ),
+            ),
+          );
+          if (result != null && mounted) {
+            await DatabaseService.insertGorselRapor(
+              id: result.id,
+              firmaId: widget.firmaId,
+              baslik: result.baslik,
+              rapor: result.rapor,
+              tarih: result.tarih,
+              fotoPaths: result.fotoPaths,
+            );
+            setState(() => widget.raporlar.add(result));
+          }
+        },
+      ),
     );
   }
 
@@ -159,24 +343,142 @@ class _GorselRaporPageState extends State<GorselRaporPage> {
           "Yeni Analiz",
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
-        onPressed: () async {
-          final result = await Navigator.push<GorselRapor>(
-            context,
-            MaterialPageRoute(builder: (_) => const RaporOlusturPage()),
-          );
+        onPressed: _yeniAnalizSec,
+      ),
+    );
+  }
+}
 
-          if (result != null) {
-            await DatabaseService.insertGorselRapor(
-              id: result.id,
-              firmaId: widget.firmaId,
-              baslik: result.baslik,
-              rapor: result.rapor,
-              tarih: result.tarih,
-              fotoPaths: result.fotoPaths,
-            );
-            setState(() => widget.raporlar.add(result));
-          }
-        },
+// ─────────────────────────────────────────────
+// RAPOR TİPİ SEÇİM SHEET
+// ─────────────────────────────────────────────
+class RaporTipiSecSheet extends StatelessWidget {
+  final void Function(RaporTipi) onSecim;
+  const RaporTipiSecSheet({required this.onSecim});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).padding.bottom + 20,
+        left: 20,
+        right: 20,
+        top: 16,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[700],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Rapor Tipi Seçin',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'İhtiyacınıza göre analiz derinliğini belirleyin',
+            style: TextStyle(color: Colors.grey[500], fontSize: 12),
+          ),
+          const SizedBox(height: 20),
+          _TipKarti(
+            icon: Icons.bolt_rounded,
+            renk: Colors.orange,
+            baslik: 'Hızlı Rapor',
+            aciklama: 'Uygunsuzluklar maddeler hâlinde; tespit ve öneriler',
+            onTap: () => onSecim(RaporTipi.hizli),
+          ),
+          const SizedBox(height: 12),
+          _TipKarti(
+            icon: Icons.assignment_outlined,
+            renk: Colors.amber,
+            baslik: 'Detaylı Rapor',
+            aciklama: 'Tespit, olması gereken ve mevzuat referansları',
+            onTap: () => onSecim(RaporTipi.detayli),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TipKarti extends StatelessWidget {
+  final IconData icon;
+  final Color renk;
+  final String baslik;
+  final String aciklama;
+  final VoidCallback onTap;
+
+  const _TipKarti({
+    required this.icon,
+    required this.renk,
+    required this.baslik,
+    required this.aciklama,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0D1117),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: renk.withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: renk.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: renk, size: 24),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    baslik,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    aciklama,
+                    style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: renk.withValues(alpha: 0.7),
+              size: 20,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -197,21 +499,79 @@ class _RaporIslemleriSheetState extends State<_RaporIslemleriSheet> {
   bool _loading = false;
   String _loadingMsg = '';
 
-  Future<void> _pdfPaylas() async {
+  Future<void> _pdfIndir() async {
     setState(() {
       _loading = true;
-      _loadingMsg = 'PDF oluşturuluyor...';
+      _loadingMsg = 'PDF kaydediliyor...';
     });
-    final file = await _pdfDosyasiOlustur(widget.rapor);
+    final bytes = await _pdfBytesOlustur(widget.rapor);
     if (!mounted) return;
-    Navigator.pop(context);
-    if (file != null) {
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        text: widget.rapor.baslik,
-      );
-    } else {
+
+    if (bytes == null) {
+      Navigator.pop(context);
       _showHata('PDF oluşturulamadı');
+      return;
+    }
+
+    try {
+      // Public Downloads dizinine yaz (/storage/emulated/0/Download/)
+      // Android 10+ üzerinde de çalışır (hedef SDK kısıtlaması yoksa)
+      Directory saveDir = Directory('/storage/emulated/0/Download');
+      bool usedPublic = false;
+
+      try {
+        if (!await saveDir.exists()) await saveDir.create(recursive: true);
+        // Yazma iznini test et
+        final test = File('${saveDir.path}/.perm_test');
+        await test.writeAsBytes([0]);
+        await test.delete();
+        usedPublic = true;
+      } catch (_) {
+        // Public Downloads'a yazılamadı → uygulama harici depolama
+        final extDir = await getExternalStorageDirectory();
+        saveDir = extDir ?? await getApplicationDocumentsDirectory();
+        if (!await saveDir.exists()) await saveDir.create(recursive: true);
+      }
+
+      final ts = DateTime.now();
+      final dateTag = '${ts.day.toString().padLeft(2, "0")}${ts.month.toString().padLeft(2, "0")}${ts.year}';
+      final baseName = _pdfFileName(widget.rapor.firmaAdi, widget.rapor.id)
+          .replaceAll('.pdf', '');
+      final fileName = '${baseName}_$dateTag.pdf';
+      final file = File('${saveDir.path}/$fileName');
+      await file.writeAsBytes(bytes);
+
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_outline,
+                  color: Colors.white, size: 17),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  usedPublic
+                      ? 'PDF İndirilenler klasörüne kaydedildi\n$fileName'
+                      : 'PDF kaydedildi (Dosya Yöneticisi → Android → data)\n$fileName',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.green.shade800,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          margin: const EdgeInsets.all(16),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      _showHata('Kayıt hatası: $e');
     }
   }
 
@@ -220,14 +580,13 @@ class _RaporIslemleriSheetState extends State<_RaporIslemleriSheet> {
       _loading = true;
       _loadingMsg = 'PDF hazırlanıyor...';
     });
-    final file = await _pdfDosyasiOlustur(widget.rapor);
+    final bytes = await _pdfBytesOlustur(widget.rapor);
     if (!mounted) return;
     Navigator.pop(context);
-    if (file != null) {
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        subject: widget.rapor.baslik,
-        text: 'İSG Görsel Denetim Raporu: ${widget.rapor.baslik}',
+    if (bytes != null) {
+      await Printing.sharePdf(
+        bytes: bytes,
+        filename: _pdfFileName(widget.rapor.firmaAdi, widget.rapor.id),
       );
     } else {
       _showHata('PDF oluşturulamadı');
@@ -240,17 +599,17 @@ class _RaporIslemleriSheetState extends State<_RaporIslemleriSheet> {
       _loadingMsg = 'Yazdırma hazırlanıyor...';
     });
     try {
-      final pdf = await _buildPdfDoc(widget.rapor);
-      final bytes = await pdf.save();
       if (!mounted) return;
       Navigator.pop(context);
       await Printing.layoutPdf(
-        onLayout: (_) async => bytes,
+        onLayout: (_) async {
+          final bytes = await _pdfBytesOlustur(widget.rapor);
+          return bytes ?? Uint8List(0);
+        },
         name: widget.rapor.baslik,
       );
     } catch (e) {
       if (mounted) {
-        Navigator.pop(context);
         _showHata('Yazdırma hatası: $e');
       }
     }
@@ -331,16 +690,16 @@ class _RaporIslemleriSheetState extends State<_RaporIslemleriSheet> {
             _IslemSatiri(
               icon: Icons.picture_as_pdf_outlined,
               renk: Colors.amber,
-              baslik: 'PDF Oluştur & Paylaş',
-              aciklama: 'PDF dosyası oluşturulur, uygulama seçebilirsiniz',
-              onTap: _pdfPaylas,
+              baslik: 'PDF İndir',
+              aciklama: 'PDF oluşturulur, uygulama seçerek indirebilirsiniz',
+              onTap: _pdfIndir,
             ),
             const Divider(height: 1, color: Color(0xFF2A2F3A), indent: 56),
             _IslemSatiri(
               icon: Icons.mail_outline,
               renk: Colors.blueAccent,
               baslik: 'E-posta ile Gönder',
-              aciklama: 'PDF eklenmiş e-posta uygulaması açılır',
+              aciklama: 'PDF eklenmiş paylaşım ekranı açılır',
               onTap: _emailGonder,
             ),
             const Divider(height: 1, color: Color(0xFF2A2F3A), indent: 56),
@@ -447,7 +806,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           const Text(
-            "Henüz Görsel Rapor Yok",
+            "Henüz AI Rapor Yok",
             style: TextStyle(
               color: Colors.white,
               fontSize: 16,
@@ -467,7 +826,8 @@ class _EmptyState extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             "Aşağıdaki butona dokunun →",
-            style: TextStyle(color: Colors.amber.withValues(alpha: 0.6), fontSize: 12),
+            style: TextStyle(
+                color: Colors.amber.withValues(alpha: 0.6), fontSize: 12),
           ),
         ],
       ),
@@ -497,7 +857,7 @@ class _StatsBar extends StatelessWidget {
           const Icon(Icons.analytics_outlined, color: Colors.amber, size: 18),
           const SizedBox(width: 10),
           Text(
-            "Toplam $raporSayisi Görsel Rapor",
+            "Toplam $raporSayisi AI Rapor",
             style: const TextStyle(
               color: Colors.white,
               fontSize: 13,
@@ -652,12 +1012,12 @@ class _RaporKarti extends StatelessWidget {
               ),
             ),
 
-            // İşlem menüsü butonu
             GestureDetector(
               onTap: onMenuTap,
               behavior: HitTestBehavior.opaque,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 16),
                 child: Icon(Icons.more_vert, color: Colors.grey[600], size: 20),
               ),
             ),
@@ -672,7 +1032,14 @@ class _RaporKarti extends StatelessWidget {
 // RAPOR OLUŞTUR SAYFASI
 // ─────────────────────────────────────────────
 class RaporOlusturPage extends StatefulWidget {
-  const RaporOlusturPage({super.key});
+  final String firmaAdi;
+  final RaporTipi raporTipi;
+
+  const RaporOlusturPage({
+    super.key,
+    required this.firmaAdi,
+    required this.raporTipi,
+  });
 
   @override
   State<RaporOlusturPage> createState() => _RaporOlusturPageState();
@@ -724,6 +1091,35 @@ class _RaporOlusturPageState extends State<RaporOlusturPage>
     }
   }
 
+  String get _prompt {
+    if (widget.raporTipi == RaporTipi.hizli) {
+      return '''
+Sen kıdemli bir A sınıfı İş Güvenliği Uzmanısın. Görseldeki çalışma ortamını incele.
+
+Tespit ettiğin uygunsuzlukları önem sırasına göre listele. Her uygunsuzluk için:
+
+• [Uygunsuzluk Başlığı]
+  Tespit: [ne gözlemlendiği]
+  Olması Gereken: [nasıl olması gerektiği]
+
+Yalnızca Türkçe yaz. Kısa ve net yaz. Risk seviyesi, puan veya genel değerlendirme bölümü ekleme. Uygunsuzluk yoksa bunu açıkça belirt.
+''';
+    } else {
+      return '''
+Sen kıdemli bir A sınıfı İş Güvenliği Uzmanısın ve sahada resmi denetim yapıyorsun. Görseldeki çalışma ortamını profesyonel bir İSG uzmanı gözüyle titizlikle analiz et.
+
+Tespit ettiğin uygunsuzlukları önem sırasına göre numaralandırarak raporla. Her uygunsuzluk için şu formatı kullan:
+
+[Numara]. [Uygunsuzluk Başlığı]
+Tespit: [ne gözlemlendiği, somut ve teknik olarak]
+Olması Gereken: [mevzuata ve iyi uygulamalara göre nasıl olması gerektiği]
+Mevzuat: [ilgili kanun, yönetmelik veya standart; örn: 6331 sayılı İSG Kanunu, İş Ekipmanlarının Kullanımında Sağlık ve Güvenlik Şartları Yönetmeliği, vb.]
+
+Yalnızca Türkçe yaz. Resmi ve profesyonel bir üslup kullan; yapay zeka dili değil, deneyimli bir uzman gibi yaz. Risk seviyesi bölümü, genel değerlendirme puanı veya özet ekleme. Uygunsuzluk yoksa bunu açıkça belirt.
+''';
+    }
+  }
+
   Future<void> _analizEt() async {
     final apiKey = dotenv.env['GEMINI_API_KEY']?.trim() ?? '';
 
@@ -753,38 +1149,8 @@ class _RaporOlusturPageState extends State<RaporOlusturPage>
 
       setState(() => _loadingText = 'Yapay zeka analiz yapıyor...');
 
-      const prompt = '''
-Sen kıdemli bir İş Sağlığı ve Güvenliği (İSG) Uzmanısın. Görselleri titizlikle analiz ederek aşağıdaki formatta kapsamlı ve profesyonel bir saha denetim raporu hazırla:
-
-**GENEL DEĞERLENDİRME**
-Fotoğraflarda görünen çalışma ortamını ve genel durumu kısaca açıkla.
-
-**TESPİT EDİLEN UYGUNSUZLUKLAR VE TEHLİKELER**
-Her tehlikeyi ayrı olarak numaralandır ve şu bilgileri ver:
-• Tehlike/Uygunsuzluk Adı
-• Açıklama ve gözlem
-• Risk Seviyesi: Düşük / Orta / Yüksek / Kritik
-• İlgili Mevzuat veya Standart (varsa, örn: İş Sağlığı ve Güvenliği Kanunu 6331, OHSAS 18001)
-
-**RİSK DERECELENDİRMESİ**
-Tespit edilen tehlikeleri risk seviyelerine göre sırala.
-
-**ACİL ALINMASI GEREKEN ÖNLEMLER**
-Kritik ve yüksek riskler için derhal uygulanması gereken düzeltici faaliyetleri listele.
-
-**UZUN VADELİ İYİLEŞTİRME ÖNERİLERİ**
-Sistemsel ve kalıcı iyileştirmeler için öneriler sun.
-
-**SONUÇ VE GENEL RİSK PUANI**
-Genel risk durumunu değerlendir ve özet bir sonuç yaz.
-
-Raporu yalnızca Türkçe yaz. Teknik, resmi ve profesyonel bir dil kullan. Eğer fotoğraflarda herhangi bir uygunsuzluk tespit edilemiyorsa bunu da açıkça belirt.
-''';
-
-      setState(() => _loadingText = 'Rapor hazırlanıyor...');
-
       final response = await model.generateContent([
-        Content.multi([TextPart(prompt), ...images])
+        Content.multi([TextPart(_prompt), ...images])
       ]);
 
       final raporMetni = response.text ?? '';
@@ -792,7 +1158,9 @@ Raporu yalnızca Türkçe yaz. Teknik, resmi ve profesyonel bir dil kullan. Eğe
       setState(() {
         _rapor.text = raporMetni;
         if (_baslik.text.isEmpty) {
-          _baslik.text = 'İSG Görsel Denetim Raporu';
+          _baslik.text = widget.raporTipi == RaporTipi.hizli
+              ? 'Hızlı İSG Analiz Raporu'
+              : 'Detaylı İSG Denetim Raporu';
         }
       });
     } catch (e) {
@@ -830,9 +1198,12 @@ Raporu yalnızca Türkçe yaz. Teknik, resmi ve profesyonel bir dil kullan. Eğe
         tarih: DateTime.now(),
         fotoPaths: List.from(_photos),
         baslik: _baslik.text.trim().isEmpty
-            ? 'İSG Görsel Raporu'
+            ? (widget.raporTipi == RaporTipi.hizli
+                ? 'Hızlı İSG Analiz Raporu'
+                : 'Detaylı İSG Denetim Raporu')
             : _baslik.text.trim(),
         rapor: _rapor.text,
+        firmaAdi: widget.firmaAdi,
       ),
     );
   }
@@ -841,6 +1212,8 @@ Raporu yalnızca Türkçe yaz. Teknik, resmi ve profesyonel bir dil kullan. Eğe
   Widget build(BuildContext context) {
     final bool hazir = _photos.isNotEmpty && !_loading;
     final bool analizTamam = _rapor.text.trim().isNotEmpty;
+    final isHizli = widget.raporTipi == RaporTipi.hizli;
+    final tipRenk = isHizli ? Colors.orange : Colors.amber;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D1117),
@@ -851,16 +1224,26 @@ Raporu yalnızca Türkçe yaz. Teknik, resmi ve profesyonel bir dil kullan. Eğe
           icon: const Icon(Icons.arrow_back_ios_new, size: 18),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Yeni Görsel Rapor',
+            const Text(
+              'Yeni AI Rapor',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
-            Text(
-              'İSG Yapay Zeka Analizi',
-              style: TextStyle(fontSize: 11, color: Colors.amber),
+            Row(
+              children: [
+                Icon(
+                  isHizli ? Icons.bolt_rounded : Icons.assignment_outlined,
+                  color: tipRenk,
+                  size: 11,
+                ),
+                const SizedBox(width: 3),
+                Text(
+                  isHizli ? 'Hızlı Rapor' : 'Detaylı Rapor',
+                  style: TextStyle(fontSize: 11, color: tipRenk),
+                ),
+              ],
             ),
           ],
         ),
@@ -998,8 +1381,8 @@ Raporu yalnızca Türkçe yaz. Teknik, resmi ve profesyonel bir dil kullan. Eğe
                             gradient: hazir
                                 ? LinearGradient(
                                     colors: [
-                                      Colors.amber,
-                                      Colors.amber.shade700
+                                      tipRenk,
+                                      tipRenk.withValues(alpha: 0.75),
                                     ],
                                     begin: Alignment.centerLeft,
                                     end: Alignment.centerRight,
@@ -1016,7 +1399,7 @@ Raporu yalnızca Türkçe yaz. Teknik, resmi ve profesyonel bir dil kullan. Eğe
                                 ? [
                                     BoxShadow(
                                       color:
-                                          Colors.amber.withValues(alpha: 0.35),
+                                          tipRenk.withValues(alpha: 0.35),
                                       blurRadius: 16,
                                       offset: const Offset(0, 4),
                                     )
@@ -1148,7 +1531,8 @@ Raporu yalnızca Türkçe yaz. Teknik, resmi ve profesyonel bir dil kullan. Eğe
             decoration: BoxDecoration(
               color: const Color(0xFF0D1117),
               border: Border(
-                  top: BorderSide(color: Colors.white.withValues(alpha: 0.06))),
+                  top: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.06))),
             ),
             padding: EdgeInsets.fromLTRB(
               16,
@@ -1306,13 +1690,13 @@ class _RaporDetayPageState extends State<RaporDetayPage> {
 
   Future<void> _pdfPaylas() async {
     setState(() => _pdfYukleniyor = true);
-    final file = await _pdfDosyasiOlustur(widget.rapor);
+    final bytes = await _pdfBytesOlustur(widget.rapor);
     if (!mounted) return;
     setState(() => _pdfYukleniyor = false);
-    if (file != null) {
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        text: widget.rapor.baslik,
+    if (bytes != null) {
+      await Printing.sharePdf(
+        bytes: bytes,
+        filename: _pdfFileName(widget.rapor.firmaAdi, widget.rapor.id),
       );
     } else {
       _showSnack('PDF oluşturulamadı');
@@ -1322,12 +1706,13 @@ class _RaporDetayPageState extends State<RaporDetayPage> {
   Future<void> _yazdir() async {
     setState(() => _pdfYukleniyor = true);
     try {
-      final pdf = await _buildPdfDoc(widget.rapor);
-      final bytes = await pdf.save();
       if (!mounted) return;
       setState(() => _pdfYukleniyor = false);
       await Printing.layoutPdf(
-        onLayout: (_) async => bytes,
+        onLayout: (_) async {
+          final bytes = await _pdfBytesOlustur(widget.rapor);
+          return bytes ?? Uint8List(0);
+        },
         name: widget.rapor.baslik,
       );
     } catch (e) {
@@ -1538,7 +1923,8 @@ class _RaporDetayPageState extends State<RaporDetayPage> {
                         _pdfYukleniyor
                             ? 'Hazırlanıyor...'
                             : 'PDF Oluştur & Paylaş',
-                        style: const TextStyle(fontWeight: FontWeight.w700)),
+                        style:
+                            const TextStyle(fontWeight: FontWeight.w700)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.amber,
                       foregroundColor: Colors.black,

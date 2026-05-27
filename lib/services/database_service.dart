@@ -341,6 +341,11 @@ class DatabaseService {
     await database.delete('firmalar', where: 'id = ?', whereArgs: [id]);
   }
 
+  static Future<void> deleteAllFirmalar() async {
+    final database = await db;
+    await database.delete('firmalar');
+  }
+
   // ─── NOTLAR ────────────────────────────────────────
 
   static Future<List<Map<String, dynamic>>> getNotlar(int firmaId) async {

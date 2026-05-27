@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -147,6 +148,45 @@ class _FirmalarPageState extends State<FirmalarPage> {
     );
   }
 
+  Future<void> _deleteAll() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF161B22),
+        title: const Text("Tüm Firmaları Sil",
+            style: TextStyle(color: Colors.white)),
+        content: const Text(
+            "Tüm firmalar ve bağlı veriler (notlar, görseller, belgeler) silinecek. Devam edilsin mi?",
+            style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("İptal",
+                  style: TextStyle(color: Colors.white54))),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text("Sil",
+                  style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    await DatabaseService.deleteAllFirmalar();
+    await _loadData();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text("Tüm firmalar silindi"),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFF1F2937),
+          margin: const EdgeInsets.all(16),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
+  }
+
   Future<void> _csvImport() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -154,57 +194,91 @@ class _FirmalarPageState extends State<FirmalarPage> {
     );
     if (result == null || result.files.single.path == null) return;
 
-    final file = File(result.files.single.path!);
-    final lines = await file.readAsLines();
-    if (lines.isEmpty) return;
-
-    // Skip header if first column is non-numeric
-    final start = lines.first.split(',').first.trim().isEmpty ||
-            RegExp(r'^[A-Za-z]').hasMatch(lines.first.split(',').first.trim())
-        ? 1
-        : 0;
-
-    int added = 0;
-    final gruplar = await DatabaseService.getGruplarSimple();
-
-    for (int i = start; i < lines.length; i++) {
-      final cols = lines[i].split(',').map((c) => c.trim()).toList();
-      if (cols.isEmpty || cols[0].isEmpty) continue;
-
-      final isim = cols[0];
-      final telefon = cols.length > 1 ? cols[1] : '';
-      final mail = cols.length > 2 ? cols[2] : '';
-      final grupAdi = cols.length > 3 && cols[3].isNotEmpty ? cols[3] : null;
-
-      final firmaId = await DatabaseService.insertFirmaStandalone(
-          isim, telefon, mail);
-
-      if (grupAdi != null) {
-        final match = gruplar
-            .where((g) =>
-                (g['grupAdi'] as String).toLowerCase() ==
-                grupAdi.toLowerCase())
-            .firstOrNull;
-        if (match != null) {
-          await DatabaseService.assignFirmaToGrup(
-              firmaId, match['id'] as int);
-        }
+    try {
+      final file = File(result.files.single.path!);
+      final bytes = await file.readAsBytes();
+      String content;
+      try {
+        content = utf8.decode(bytes);
+      } catch (_) {
+        content = latin1.decode(bytes);
       }
-      added++;
-    }
+      // Strip UTF-8 BOM if present
+      if (content.startsWith('﻿')) content = content.substring(1);
 
-    await _loadData();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("$added firma yüklendi"),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: const Color(0xFF1F2937),
-          margin: const EdgeInsets.all(16),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10)),
-        ),
-      );
+      final lines =
+          content.split('\n').map((l) => l.trimRight()).toList();
+      if (lines.isEmpty) return;
+
+      // Detect separator: semicolon (Turkish Excel) or comma
+      final sep =
+          lines.first.contains(';') ? ';' : ',';
+
+      // Skip header if first column starts with a letter
+      final firstCol = lines.first.split(sep).first.trim();
+      final start =
+          firstCol.isEmpty || RegExp(r'^[A-Za-zÇĞİÖŞÜçğışöşü]').hasMatch(firstCol)
+              ? 1
+              : 0;
+
+      int added = 0;
+      final gruplar = await DatabaseService.getGruplarSimple();
+
+      for (int i = start; i < lines.length; i++) {
+        final line = lines[i].trim();
+        if (line.isEmpty) continue;
+        final cols = line.split(sep).map((c) => c.trim()).toList();
+        if (cols.isEmpty || cols[0].isEmpty) continue;
+
+        final isim = cols[0];
+        final telefon = cols.length > 1 ? cols[1] : '';
+        final mail = cols.length > 2 ? cols[2] : '';
+        final grupAdi =
+            cols.length > 3 && cols[3].isNotEmpty ? cols[3] : null;
+
+        final firmaId =
+            await DatabaseService.insertFirmaStandalone(isim, telefon, mail);
+
+        if (grupAdi != null) {
+          final match = gruplar
+              .where((g) =>
+                  (g['grupAdi'] as String).toLowerCase() ==
+                  grupAdi.toLowerCase())
+              .firstOrNull;
+          if (match != null) {
+            await DatabaseService.assignFirmaToGrup(
+                firmaId, match['id'] as int);
+          }
+        }
+        added++;
+      }
+
+      await _loadData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("$added firma yüklendi"),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: const Color(0xFF1F2937),
+            margin: const EdgeInsets.all(16),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Dosya okunamadı: $e"),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.red.shade800,
+            margin: const EdgeInsets.all(16),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
     }
   }
 
@@ -262,6 +336,11 @@ class _FirmalarPageState extends State<FirmalarPage> {
         title: const Text("Firmalar",
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_sweep_outlined),
+            tooltip: "Tümünü Sil",
+            onPressed: _deleteAll,
+          ),
           IconButton(
             icon: const Icon(Icons.upload_file_outlined),
             tooltip: "CSV Yükle",

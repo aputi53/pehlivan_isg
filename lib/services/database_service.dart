@@ -16,7 +16,7 @@ class DatabaseService {
 
     return openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
       onOpen: (db) => db.execute('PRAGMA foreign_keys = ON'),
@@ -41,6 +41,9 @@ class DatabaseService {
         mail TEXT,
         durum TEXT NOT NULL DEFAULT 'NORMAL',
         ziyaretTarihi TEXT,
+        egitimGecerlilikYil INTEGER DEFAULT 1,
+        muayeneGecerlilikYil INTEGER DEFAULT 1,
+        evrakGecerlilikYil INTEGER DEFAULT 1,
         FOREIGN KEY (grupId) REFERENCES gruplar(id) ON DELETE SET NULL
       )
     ''');
@@ -81,6 +84,29 @@ class DatabaseService {
       )
     ''');
 
+    await db.execute('''
+      CREATE TABLE calisanlar (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        firmaId INTEGER NOT NULL,
+        ad TEXT NOT NULL,
+        pozisyon TEXT,
+        FOREIGN KEY (firmaId) REFERENCES firmalar(id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE calisan_belgeleri (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        calisanId INTEGER NOT NULL,
+        firmaId INTEGER NOT NULL,
+        tur TEXT NOT NULL,
+        baslik TEXT NOT NULL,
+        belgeTarihi TEXT NOT NULL,
+        gecerlilikYil INTEGER NOT NULL DEFAULT 1,
+        FOREIGN KEY (calisanId) REFERENCES calisanlar(id) ON DELETE CASCADE
+      )
+    ''');
+
     // Onboarding
     await db.insert('gruplar', {
       'grupAdi': 'ÖRNEK GRUP',
@@ -97,7 +123,6 @@ class DatabaseService {
 
   static Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
-      // firmalar: grupId nullable + ziyaretTarihi ekle
       await db.execute('PRAGMA foreign_keys = OFF');
 
       await db.execute('''
@@ -118,11 +143,38 @@ class DatabaseService {
       ''');
       await db.execute('DROP TABLE firmalar');
       await db.execute('ALTER TABLE firmalar_v2 RENAME TO firmalar');
-
-      // belgeler: gecerlilikTarihi sütunu ekle
       await db.execute('ALTER TABLE belgeler ADD COLUMN gecerlilikTarihi TEXT');
 
       await db.execute('PRAGMA foreign_keys = ON');
+    }
+
+    if (oldVersion < 3) {
+      await db.execute('ALTER TABLE firmalar ADD COLUMN egitimGecerlilikYil INTEGER DEFAULT 1');
+      await db.execute('ALTER TABLE firmalar ADD COLUMN muayeneGecerlilikYil INTEGER DEFAULT 1');
+      await db.execute('ALTER TABLE firmalar ADD COLUMN evrakGecerlilikYil INTEGER DEFAULT 1');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS calisanlar (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          firmaId INTEGER NOT NULL,
+          ad TEXT NOT NULL,
+          pozisyon TEXT,
+          FOREIGN KEY (firmaId) REFERENCES firmalar(id) ON DELETE CASCADE
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS calisan_belgeleri (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          calisanId INTEGER NOT NULL,
+          firmaId INTEGER NOT NULL,
+          tur TEXT NOT NULL,
+          baslik TEXT NOT NULL,
+          belgeTarihi TEXT NOT NULL,
+          gecerlilikYil INTEGER NOT NULL DEFAULT 1,
+          FOREIGN KEY (calisanId) REFERENCES calisanlar(id) ON DELETE CASCADE
+        )
+      ''');
     }
   }
 
@@ -208,6 +260,9 @@ class DatabaseService {
         'ziyaretTarihi': row['ziyaretTarihi'] != null
             ? DateTime.parse(row['ziyaretTarihi'] as String)
             : null,
+        'egitimGecerlilikYil': (row['egitimGecerlilikYil'] as int?) ?? 1,
+        'muayeneGecerlilikYil': (row['muayeneGecerlilikYil'] as int?) ?? 1,
+        'evrakGecerlilikYil': (row['evrakGecerlilikYil'] as int?) ?? 1,
         'notlar': notlar,
         'raporlar': raporlar,
         'belgeler': belgeler,
@@ -263,6 +318,9 @@ class DatabaseService {
       'ziyaretTarihi': row['ziyaretTarihi'] != null
           ? DateTime.parse(row['ziyaretTarihi'] as String)
           : null,
+      'egitimGecerlilikYil': (row['egitimGecerlilikYil'] as int?) ?? 1,
+      'muayeneGecerlilikYil': (row['muayeneGecerlilikYil'] as int?) ?? 1,
+      'evrakGecerlilikYil': (row['evrakGecerlilikYil'] as int?) ?? 1,
       'notlar': notlar,
       'raporlar': raporlar,
       'belgeler': belgeler,
@@ -501,6 +559,160 @@ class DatabaseService {
   static Future<void> deleteBelge(int id) async {
     final database = await db;
     await database.delete('belgeler', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // ─── ÇALIŞANLAR ────────────────────────────────────
+
+  static Future<List<Map<String, dynamic>>> getCalisanlar(int firmaId) async {
+    final database = await db;
+    final rows = await database.query(
+      'calisanlar',
+      where: 'firmaId = ?',
+      whereArgs: [firmaId],
+      orderBy: 'ad COLLATE NOCASE ASC',
+    );
+
+    final List<Map<String, dynamic>> result = [];
+    for (final row in rows) {
+      final calisanId = row['id'] as int;
+      final egitimCount = Sqflite.firstIntValue(await database.rawQuery(
+        "SELECT COUNT(*) FROM calisan_belgeleri WHERE calisanId = ? AND tur = 'egitim'",
+        [calisanId],
+      )) ?? 0;
+      final muayeneCount = Sqflite.firstIntValue(await database.rawQuery(
+        "SELECT COUNT(*) FROM calisan_belgeleri WHERE calisanId = ? AND tur = 'muayene'",
+        [calisanId],
+      )) ?? 0;
+      result.add({
+        'id': calisanId,
+        'firmaId': row['firmaId'],
+        'ad': row['ad'],
+        'pozisyon': row['pozisyon'],
+        'egitimCount': egitimCount,
+        'muayeneCount': muayeneCount,
+      });
+    }
+    return result;
+  }
+
+  static Future<int> insertCalisan(
+      int firmaId, String ad, String? pozisyon) async {
+    final database = await db;
+    return database.insert('calisanlar', {
+      'firmaId': firmaId,
+      'ad': ad,
+      'pozisyon': pozisyon,
+    });
+  }
+
+  static Future<void> deleteCalisan(int id) async {
+    final database = await db;
+    await database.delete('calisanlar', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // ─── ÇALIŞAN BELGELERİ ────────────────────────────
+
+  static Future<List<Map<String, dynamic>>> getCalisanBelgeleri(
+      int calisanId) async {
+    final database = await db;
+    final rows = await database.query(
+      'calisan_belgeleri',
+      where: 'calisanId = ?',
+      whereArgs: [calisanId],
+      orderBy: 'belgeTarihi DESC',
+    );
+    return rows.map((row) => {
+          'id': row['id'],
+          'calisanId': row['calisanId'],
+          'firmaId': row['firmaId'],
+          'tur': row['tur'],
+          'baslik': row['baslik'],
+          'belgeTarihi': row['belgeTarihi'] as String,
+          'gecerlilikYil': row['gecerlilikYil'],
+        }).toList();
+  }
+
+  static Future<int> insertCalisanBelge({
+    required int calisanId,
+    required int firmaId,
+    required String tur,
+    required String baslik,
+    required DateTime belgeTarihi,
+    required int gecerlilikYil,
+  }) async {
+    final database = await db;
+    return database.insert('calisan_belgeleri', {
+      'calisanId': calisanId,
+      'firmaId': firmaId,
+      'tur': tur,
+      'baslik': baslik,
+      'belgeTarihi': belgeTarihi.toIso8601String(),
+      'gecerlilikYil': gecerlilikYil,
+    });
+  }
+
+  static Future<void> deleteCalisanBelge(int id) async {
+    final database = await db;
+    await database.delete('calisan_belgeleri',
+        where: 'id = ?', whereArgs: [id]);
+  }
+
+  static Future<void> updateFirmaGecerlilikAyarlari(
+      int firmaId, int egitim, int muayene, int evrak) async {
+    final database = await db;
+    await database.update(
+      'firmalar',
+      {
+        'egitimGecerlilikYil': egitim,
+        'muayeneGecerlilikYil': muayene,
+        'evrakGecerlilikYil': evrak,
+      },
+      where: 'id = ?',
+      whereArgs: [firmaId],
+    );
+  }
+
+  static Future<List<Map<String, dynamic>>> getExpiringBelgeler({
+    int daysThreshold = 30,
+  }) async {
+    final database = await db;
+    final rows = await database.rawQuery('''
+      SELECT cb.id, cb.tur, cb.baslik, cb.belgeTarihi, cb.gecerlilikYil,
+             c.ad AS calisanAd, f.isim AS firmaIsim
+      FROM calisan_belgeleri cb
+      JOIN calisanlar c ON cb.calisanId = c.id
+      JOIN firmalar f ON cb.firmaId = f.id
+    ''');
+
+    final today = DateTime.now();
+    final todayNorm =
+        DateTime(today.year, today.month, today.day);
+    final List<Map<String, dynamic>> result = [];
+
+    for (final row in rows) {
+      final belgeTarihi =
+          DateTime.parse(row['belgeTarihi'] as String);
+      final gecerlilikYil = row['gecerlilikYil'] as int;
+      final expiry = DateTime(
+        belgeTarihi.year + gecerlilikYil,
+        belgeTarihi.month,
+        belgeTarihi.day,
+      );
+      final daysLeft = expiry.difference(todayNorm).inDays;
+
+      if (daysLeft >= 0 && daysLeft <= daysThreshold) {
+        result.add({
+          'id': row['id'],
+          'tur': row['tur'],
+          'baslik': row['baslik'],
+          'calisanAd': row['calisanAd'],
+          'firmaIsim': row['firmaIsim'],
+          'daysLeft': daysLeft,
+          'expiry': expiry,
+        });
+      }
+    }
+    return result;
   }
 
   // ─── RAPORLAR MODÜLü ────────────────────────────────

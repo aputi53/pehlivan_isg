@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:pehlivan_isg/pages/calisanlar_page.dart';
 import 'package:pehlivan_isg/pages/gorsel_rapor_page.dart';
 import 'package:pehlivan_isg/services/database_service.dart';
 import 'package:pehlivan_isg/widgets/belgeler_widget.dart';
@@ -27,7 +28,7 @@ class _FirmaDetayPageState extends State<FirmaDetayPage>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 4, vsync: this);
+    _tabCtrl = TabController(length: 5, vsync: this);
     _loadData();
   }
 
@@ -197,6 +198,7 @@ class _FirmaDetayPageState extends State<FirmaDetayPage>
           labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
           tabs: const [
             Tab(text: "Genel"),
+            Tab(text: "Çalışanlar"),
             Tab(text: "Notlar"),
             Tab(text: "Raporlar"),
             Tab(text: "Belgeler"),
@@ -215,6 +217,10 @@ class _FirmaDetayPageState extends State<FirmaDetayPage>
           _GenelTab(
             firma: _firma!,
             onUpdated: _loadData,
+          ),
+          CalisanlarPage(
+            firmaId: widget.firmaId,
+            firma: _firma!,
           ),
           _NotlarTab(
             firmaId: widget.firmaId,
@@ -253,11 +259,31 @@ class _GenelTab extends StatefulWidget {
 class _GenelTabState extends State<_GenelTab> {
   List<Map<String, dynamic>> _gruplar = [];
   bool _gruplarLoaded = false;
+  late int _egitimYil;
+  late int _muayeneYil;
+  late int _evrakYil;
 
   @override
   void initState() {
     super.initState();
+    _egitimYil =
+        (widget.firma['egitimGecerlilikYil'] as int?) ?? 1;
+    _muayeneYil =
+        (widget.firma['muayeneGecerlilikYil'] as int?) ?? 1;
+    _evrakYil =
+        (widget.firma['evrakGecerlilikYil'] as int?) ?? 1;
     _loadGruplar();
+  }
+
+  @override
+  void didUpdateWidget(_GenelTab old) {
+    super.didUpdateWidget(old);
+    _egitimYil =
+        (widget.firma['egitimGecerlilikYil'] as int?) ?? 1;
+    _muayeneYil =
+        (widget.firma['muayeneGecerlilikYil'] as int?) ?? 1;
+    _evrakYil =
+        (widget.firma['evrakGecerlilikYil'] as int?) ?? 1;
   }
 
   Future<void> _loadGruplar() async {
@@ -603,6 +629,132 @@ class _GenelTabState extends State<_GenelTab> {
               ],
             ),
           ),
+        ),
+        const SizedBox(height: 12),
+
+        // Evrak geçerlilik süreleri
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF161B22),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+                color: Colors.white.withValues(alpha: 0.07)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.timer_outlined,
+                      color: Colors.amber, size: 18),
+                  const SizedBox(width: 8),
+                  const Text(
+                    "Evrak Geçerlilik Süreleri",
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                "Belge ekleme ekranında varsayılan süre olarak kullanılır.",
+                style:
+                    TextStyle(color: Colors.grey[600], fontSize: 11),
+              ),
+              const SizedBox(height: 14),
+              _gecerlilikRow(
+                "Eğitim Sertifikaları",
+                Icons.school_outlined,
+                Colors.blue,
+                _egitimYil,
+                [1, 3, 5],
+                (v) async {
+                  setState(() => _egitimYil = v);
+                  await DatabaseService.updateFirmaGecerlilikAyarlari(
+                      firma['id'] as int,
+                      v,
+                      _muayeneYil,
+                      _evrakYil);
+                },
+              ),
+              const SizedBox(height: 10),
+              _gecerlilikRow(
+                "Muayene Formları",
+                Icons.medical_services_outlined,
+                Colors.green,
+                _muayeneYil,
+                [1, 3, 5],
+                (v) async {
+                  setState(() => _muayeneYil = v);
+                  await DatabaseService.updateFirmaGecerlilikAyarlari(
+                      firma['id'] as int,
+                      _egitimYil,
+                      v,
+                      _evrakYil);
+                },
+              ),
+              const SizedBox(height: 10),
+              _gecerlilikRow(
+                "Firma Evrakları",
+                Icons.folder_outlined,
+                Colors.orange,
+                _evrakYil,
+                [1, 2, 3],
+                (v) async {
+                  setState(() => _evrakYil = v);
+                  await DatabaseService.updateFirmaGecerlilikAyarlari(
+                      firma['id'] as int,
+                      _egitimYil,
+                      _muayeneYil,
+                      v);
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _gecerlilikRow(
+    String label,
+    IconData icon,
+    Color color,
+    int value,
+    List<int> options,
+    Future<void> Function(int) onChanged,
+  ) {
+    return Row(
+      children: [
+        Icon(icon, color: color, size: 15),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style:
+                const TextStyle(color: Colors.white70, fontSize: 13),
+          ),
+        ),
+        DropdownButton<int>(
+          value: options.contains(value) ? value : options.first,
+          dropdownColor: const Color(0xFF1C2333),
+          underline: const SizedBox(),
+          style: const TextStyle(
+              color: Colors.amber,
+              fontWeight: FontWeight.w600,
+              fontSize: 13),
+          items: options
+              .map((y) => DropdownMenuItem(
+                    value: y,
+                    child: Text("$y Yıl"),
+                  ))
+              .toList(),
+          onChanged: (v) {
+            if (v != null) onChanged(v);
+          },
         ),
       ],
     );

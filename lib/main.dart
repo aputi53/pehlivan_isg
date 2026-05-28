@@ -3,11 +3,15 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'package:pehlivan_isg/screens/home_screen.dart';
 import 'package:pehlivan_isg/screens/security/app_lock_wrapper.dart';
+import 'package:pehlivan_isg/services/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await dotenv.load(fileName: ".env");
+
+  await NotificationService.initialize();
+  NotificationService.checkExpiringDocuments();
 
   runApp(const PehlivanISGApp());
 }

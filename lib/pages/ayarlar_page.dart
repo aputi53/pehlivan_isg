@@ -1,17 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart'; // ← Link açma işlemleri için eklendi
+import 'package:url_launcher/url_launcher.dart';
 import '../services/biometric_service.dart';
+import '../services/theme_service.dart';
 import '../screens/security/change_pin_screen.dart';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// TEMA YÖNETİCİSİ  (main.dart'taki MaterialApp'e bağlanır)
-// ─────────────────────────────────────────────────────────────────────────────
-class ThemeNotifier extends ValueNotifier<ThemeMode> {
-  ThemeNotifier() : super(ThemeMode.dark);
-}
-
-final themeNotifier = ThemeNotifier();
 
 class AyarlarPage extends StatefulWidget {
   const AyarlarPage({super.key});
@@ -246,18 +238,10 @@ class _AyarlarPageState extends State<AyarlarPage>
 
               const SizedBox(height: 22),
 
-              // ── GÖRÜNÜM ──────────────────────────────────────────────────
-              _sectionLabel('Görünüm', Icons.palette_outlined),
+              // ── TEMA ─────────────────────────────────────────────────────
+              _sectionLabel('Tema', Icons.palette_outlined),
               const SizedBox(height: 10),
-              _settingsCard([
-                _toggleTile(
-                  icon: Icons.dark_mode_outlined,
-                  title: 'Karanlık Mod',
-                  subtitle: 'Yakında aktif olacak',
-                  value: true,
-                  onChanged: null,
-                ),
-              ]),
+              _TemaKarti(),
 
               const SizedBox(height: 22),
 
@@ -925,6 +909,199 @@ class _AyarlarPageState extends State<AyarlarPage>
           padding: const EdgeInsets.symmetric(vertical: 14),
         ),
         child: const Text('Kapat', style: TextStyle(fontWeight: FontWeight.w700)),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TEMA KARTI
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _TemaKarti extends StatefulWidget {
+  @override
+  State<_TemaKarti> createState() => _TemaKartiState();
+}
+
+class _TemaKartiState extends State<_TemaKarti> {
+  @override
+  void initState() {
+    super.initState();
+    themeService.addListener(_onThemeChange);
+  }
+
+  @override
+  void dispose() {
+    themeService.removeListener(_onThemeChange);
+    super.dispose();
+  }
+
+  void _onThemeChange() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = themeService.isDark;
+    final currentAccent = themeService.accent;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF10151F),
+        borderRadius: BorderRadius.circular(18),
+        border:
+            Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Column(
+        children: [
+          // ── KARANLK / AYDINLIK toggle ──────────────
+          Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8B84B).withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    isDark
+                        ? Icons.dark_mode_outlined
+                        : Icons.light_mode_outlined,
+                    color: const Color(0xFFE8B84B),
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isDark ? 'Karanlık Mod' : 'Aydınlık Mod',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14),
+                      ),
+                      Text(
+                        isDark
+                            ? 'Koyu arka plan, gece dostu'
+                            : 'Açık arka plan, gün ışığı',
+                        style: const TextStyle(
+                            color: Colors.white38, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                Transform.scale(
+                  scale: 0.85,
+                  child: Switch(
+                    value: !isDark,
+                    onChanged: (v) => themeService.setMode(
+                        v ? ThemeMode.light : ThemeMode.dark),
+                    activeColor: const Color(0xFFE8B84B),
+                    activeTrackColor:
+                        const Color(0xFFE8B84B).withValues(alpha: 0.25),
+                    inactiveThumbColor: Colors.white24,
+                    inactiveTrackColor: Colors.white10,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          Divider(
+              height: 1,
+              color: Colors.white.withValues(alpha: 0.05),
+              indent: 16,
+              endIndent: 16),
+
+          // ── ACCENT RENK SEÇİMİ ──────────────────────
+          Padding(
+            padding:
+                const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Vurgu Rengi",
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  "Butonlar, ikonlar ve vurgu noktaları",
+                  style: TextStyle(
+                      color: Colors.white38, fontSize: 12),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  mainAxisAlignment:
+                      MainAxisAlignment.spaceBetween,
+                  children: accentPresetler.map((preset) {
+                    final isSelected =
+                        currentAccent == preset.renk;
+                    return GestureDetector(
+                      onTap: () => themeService.setAccent(preset),
+                      child: AnimatedContainer(
+                        duration:
+                            const Duration(milliseconds: 200),
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: preset.renk,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isSelected
+                                ? Colors.white
+                                : Colors.transparent,
+                            width: 2.5,
+                          ),
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: preset.renk
+                                        .withValues(alpha: 0.5),
+                                    blurRadius: 8,
+                                    spreadRadius: 1,
+                                  ),
+                                ]
+                              : [],
+                        ),
+                        child: isSelected
+                            ? const Icon(Icons.check,
+                                color: Colors.black,
+                                size: 18)
+                            : null,
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 10),
+                // Renk adı
+                Center(
+                  child: Text(
+                    accentPresetler
+                        .firstWhere(
+                          (p) => p.renk == currentAccent,
+                          orElse: () => accentPresetler.first,
+                        )
+                        .ad,
+                    style: TextStyle(
+                        color: currentAccent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

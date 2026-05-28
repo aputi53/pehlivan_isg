@@ -4,6 +4,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:pehlivan_isg/screens/home_screen.dart';
 import 'package:pehlivan_isg/screens/security/app_lock_wrapper.dart';
 import 'package:pehlivan_isg/services/notification_service.dart';
+import 'package:pehlivan_isg/services/theme_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,18 +22,14 @@ class PehlivanISGApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF0D1117),
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFFE8B84B),
-          secondary: Color(0xFFE8B84B),
-        ),
-      ),
-
-      home: AppLockWrapper(
-        child: AnaEkran(),
+    return ValueListenableBuilder<ThemeConfig>(
+      valueListenable: themeService,
+      builder: (_, config, __) => MaterialApp(
+        debugShowCheckedModeBanner: false,
+        themeMode: config.mode,
+        theme: buildThemeData(config.accent, Brightness.light),
+        darkTheme: buildThemeData(config.accent, Brightness.dark),
+        home: AppLockWrapper(child: AnaEkran()),
       ),
     );
   }

@@ -270,7 +270,6 @@ class _AksiyanPageState extends State<AksiyanPage> {
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
-        backgroundColor: const Color(0xFF0D1117),
         appBar: AppBar(
             backgroundColor: const Color(0xFF161B22),
             foregroundColor: Colors.white,
@@ -318,7 +317,6 @@ class _AksiyanPageState extends State<AksiyanPage> {
         .toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1117),
       appBar: AppBar(
         backgroundColor: const Color(0xFF161B22),
         foregroundColor: Colors.white,

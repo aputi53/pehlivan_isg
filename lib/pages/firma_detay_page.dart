@@ -167,21 +167,18 @@ class _FirmaDetayPageState extends State<FirmaDetayPage>
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
-        backgroundColor: const Color(0xFF0D1117),
         body: const Center(
             child: CircularProgressIndicator(color: Colors.amber)),
       );
     }
     if (_firma == null) {
       return Scaffold(
-        backgroundColor: const Color(0xFF0D1117),
         appBar: AppBar(backgroundColor: const Color(0xFF161B22)),
         body: const Center(child: Text("Firma bulunamadı")),
       );
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1117),
       appBar: AppBar(
         backgroundColor: const Color(0xFF161B22),
         foregroundColor: Colors.white,

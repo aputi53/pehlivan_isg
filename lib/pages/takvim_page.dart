@@ -50,7 +50,6 @@ class _TakvimPageState extends State<TakvimPage> {
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
-        backgroundColor: const Color(0xFF0D1117),
         appBar: AppBar(
             backgroundColor: const Color(0xFF161B22),
             foregroundColor: Colors.white,
@@ -83,7 +82,6 @@ class _TakvimPageState extends State<TakvimPage> {
     final tumBos = _etkinlikler.isEmpty;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1117),
       appBar: AppBar(
         backgroundColor: const Color(0xFF161B22),
         foregroundColor: Colors.white,

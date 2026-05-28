@@ -122,7 +122,6 @@ class _AyarlarPageState extends State<AyarlarPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0E1A),
       appBar: AppBar(
         backgroundColor: const Color(0xFF0A0E1A),
         elevation: 0,
@@ -303,15 +302,16 @@ class _AyarlarPageState extends State<AyarlarPage>
         .replaceAll('ı', 'I')
         .toUpperCase();
 
+    final accent = Theme.of(context).colorScheme.primary;
     return Row(
       children: [
         Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: const Color(0xFFE8B84B).withOpacity(0.12),
+            color: accent.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(icon, color: const Color(0xFFE8B84B), size: 14),
+          child: Icon(icon, color: accent, size: 14),
         ),
         const SizedBox(width: 10),
         Text(duzgunMetin,
@@ -379,8 +379,8 @@ class _AyarlarPageState extends State<AyarlarPage>
             child: Switch(
               value: value,
               onChanged: onChanged,
-              activeColor: const Color(0xFFE8B84B),
-              activeTrackColor: const Color(0xFFE8B84B).withOpacity(0.25),
+              activeColor: Theme.of(context).colorScheme.primary,
+              activeTrackColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
               inactiveThumbColor: Colors.white24,
               inactiveTrackColor: Colors.white10,
             ),
@@ -1002,9 +1002,8 @@ class _TemaKartiState extends State<_TemaKarti> {
                     value: !isDark,
                     onChanged: (v) => themeService.setMode(
                         v ? ThemeMode.light : ThemeMode.dark),
-                    activeColor: const Color(0xFFE8B84B),
-                    activeTrackColor:
-                        const Color(0xFFE8B84B).withValues(alpha: 0.25),
+                    activeColor: Theme.of(context).colorScheme.primary,
+                    activeTrackColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
                     inactiveThumbColor: Colors.white24,
                     inactiveTrackColor: Colors.white10,
                   ),

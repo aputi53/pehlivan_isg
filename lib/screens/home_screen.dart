@@ -65,7 +65,6 @@ class _AnaEkranState extends State<AnaEkran> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1117),
       drawer: const AppDrawer(),
       appBar: _buildAppBar(context),
       body: RefreshIndicator(

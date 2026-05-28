@@ -308,7 +308,6 @@ class _GorselRaporPageState extends State<GorselRaporPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1117),
       body: widget.raporlar.isEmpty
           ? const _EmptyState()
           : Column(
@@ -1216,7 +1215,6 @@ Yalnızca Türkçe yaz. Resmi ve profesyonel bir üslup kullan; yapay zeka dili 
     final tipRenk = isHizli ? Colors.orange : Colors.amber;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1117),
       appBar: AppBar(
         backgroundColor: const Color(0xFF0D1117),
         elevation: 0,
@@ -1739,7 +1737,6 @@ class _RaporDetayPageState extends State<RaporDetayPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1117),
       appBar: AppBar(
         backgroundColor: const Color(0xFF0D1117),
         elevation: 0,

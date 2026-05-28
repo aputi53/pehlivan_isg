@@ -45,7 +45,6 @@ class _RaporlarPageState extends State<RaporlarPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1117),
       appBar: AppBar(
         backgroundColor: const Color(0xFF0D1117),
         title: const Text("Raporlar",

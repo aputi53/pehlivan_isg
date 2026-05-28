@@ -16,7 +16,7 @@ class DatabaseService {
 
     return openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
       onOpen: (db) => db.execute('PRAGMA foreign_keys = ON'),
@@ -75,12 +75,14 @@ class DatabaseService {
       CREATE TABLE belgeler (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         firmaId INTEGER NOT NULL,
+        calisanId INTEGER,
         baslik TEXT NOT NULL,
         dosyaYolu TEXT NOT NULL,
         tur TEXT NOT NULL DEFAULT 'Diğer',
         eklemeTarihi TEXT NOT NULL,
         gecerlilikTarihi TEXT,
-        FOREIGN KEY (firmaId) REFERENCES firmalar(id) ON DELETE CASCADE
+        FOREIGN KEY (firmaId) REFERENCES firmalar(id) ON DELETE CASCADE,
+        FOREIGN KEY (calisanId) REFERENCES calisanlar(id) ON DELETE SET NULL
       )
     ''');
 
@@ -153,6 +155,7 @@ class DatabaseService {
       await db.execute('ALTER TABLE firmalar ADD COLUMN muayeneGecerlilikYil INTEGER DEFAULT 1');
       await db.execute('ALTER TABLE firmalar ADD COLUMN evrakGecerlilikYil INTEGER DEFAULT 1');
 
+
       await db.execute('''
         CREATE TABLE IF NOT EXISTS calisanlar (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -175,6 +178,10 @@ class DatabaseService {
           FOREIGN KEY (calisanId) REFERENCES calisanlar(id) ON DELETE CASCADE
         )
       ''');
+    }
+
+    if (oldVersion < 4) {
+      await db.execute('ALTER TABLE belgeler ADD COLUMN calisanId INTEGER');
     }
   }
 
@@ -519,15 +526,41 @@ class DatabaseService {
 
   static Future<List<Map<String, dynamic>>> getBelgeler(int firmaId) async {
     final database = await db;
+    final rows = await database.rawQuery('''
+      SELECT b.*, c.ad AS calisanAd
+      FROM belgeler b
+      LEFT JOIN calisanlar c ON b.calisanId = c.id
+      WHERE b.firmaId = ?
+      ORDER BY b.eklemeTarihi DESC
+    ''', [firmaId]);
+    return rows.map((row) => {
+          'id': row['id'],
+          'firmaId': row['firmaId'],
+          'calisanId': row['calisanId'],
+          'calisanAd': row['calisanAd'],
+          'baslik': row['baslik'],
+          'dosyaYolu': row['dosyaYolu'],
+          'tur': row['tur'],
+          'eklemeTarihi': DateTime.parse(row['eklemeTarihi'] as String),
+          'gecerlilikTarihi': row['gecerlilikTarihi'] != null
+              ? DateTime.parse(row['gecerlilikTarihi'] as String)
+              : null,
+        }).toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> getBelgelerByCalisan(
+      int calisanId) async {
+    final database = await db;
     final rows = await database.query(
       'belgeler',
-      where: 'firmaId = ?',
-      whereArgs: [firmaId],
+      where: 'calisanId = ?',
+      whereArgs: [calisanId],
       orderBy: 'eklemeTarihi DESC',
     );
     return rows.map((row) => {
           'id': row['id'],
           'firmaId': row['firmaId'],
+          'calisanId': row['calisanId'],
           'baslik': row['baslik'],
           'dosyaYolu': row['dosyaYolu'],
           'tur': row['tur'],
@@ -544,6 +577,7 @@ class DatabaseService {
     required String dosyaYolu,
     required String tur,
     DateTime? gecerlilikTarihi,
+    int? calisanId,
   }) async {
     final database = await db;
     return database.insert('belgeler', {
@@ -553,6 +587,7 @@ class DatabaseService {
       'tur': tur,
       'eklemeTarihi': DateTime.now().toIso8601String(),
       'gecerlilikTarihi': gecerlilikTarihi?.toIso8601String(),
+      'calisanId': calisanId,
     });
   }
 

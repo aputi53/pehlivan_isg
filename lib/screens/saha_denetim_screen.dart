@@ -1424,12 +1424,7 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
                   ),
 
                   /* ========== 4. SEKME: BELGELER ========== */
-                  BelgelerWidget(
-                    firmaId: firma["id"] as int,
-                    belgeler: (firma["belgeler"] as List?)
-                            ?.cast<Map<String, dynamic>>() ??
-                        [],
-                  ),
+                  BelgelerWidget(firmaId: firma["id"] as int),
 
                 ], // TabBarView'in ana listesini kapatan parantez
               ),

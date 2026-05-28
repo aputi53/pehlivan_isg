@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:pehlivan_isg/services/database_service.dart';
+import 'package:share_plus/share_plus.dart' show Share, XFile;
 
 class CalisanlarPage extends StatefulWidget {
   final int firmaId;
@@ -479,6 +481,7 @@ class _CalisanDetaySheet extends StatefulWidget {
 
 class _CalisanDetaySheetState extends State<_CalisanDetaySheet> {
   List<Map<String, dynamic>> _belgeler = [];
+  List<Map<String, dynamic>> _firmaBelgeleri = [];
   bool _loading = true;
 
   @override
@@ -488,11 +491,15 @@ class _CalisanDetaySheetState extends State<_CalisanDetaySheet> {
   }
 
   Future<void> _loadBelgeler() async {
-    final belgeler = await DatabaseService.getCalisanBelgeleri(
-        widget.calisan['id'] as int);
+    final calisanId = widget.calisan['id'] as int;
+    final belgeler =
+        await DatabaseService.getCalisanBelgeleri(calisanId);
+    final firmaBelgeleri =
+        await DatabaseService.getBelgelerByCalisan(calisanId);
     if (mounted) {
       setState(() {
         _belgeler = belgeler;
+        _firmaBelgeleri = firmaBelgeleri;
         _loading = false;
       });
     }
@@ -712,6 +719,139 @@ class _CalisanDetaySheetState extends State<_CalisanDetaySheet> {
     final months = daysLeft ~/ 30;
     if (months < 12) return "~$months ay kaldı";
     return "~${daysLeft ~/ 365} yıl kaldı";
+  }
+
+  Future<void> _acDosya(String path) async {
+    final result = await OpenFilex.open(path);
+    if (result.type != ResultType.done && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              "Dosya açılamadı. PDF görüntüleyici gerekli."),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  bool _isPdf(String path) => path.toLowerCase().endsWith('.pdf');
+
+  String _formatTarihKisa(DateTime d) =>
+      "${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}";
+
+  Widget _firmaBelgelerSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Row(
+            children: [
+              Icon(Icons.folder_open_outlined,
+                  color: Colors.orange[300], size: 18),
+              const SizedBox(width: 8),
+              Text(
+                'Firma Belgeleri',
+                style: TextStyle(
+                  color: Colors.orange[300],
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+        ..._firmaBelgeleri.map((belge) {
+          final dosya = belge['dosyaYolu'] as String? ?? '';
+          final isPdf = _isPdf(dosya);
+          final eklemeTarihi = belge['eklemeTarihi'] as DateTime;
+
+          return Container(
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF161B22),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                  color: Colors.orange.withValues(alpha: 0.25)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: (isPdf ? Colors.red : Colors.amber)
+                        .withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Icon(
+                    isPdf
+                        ? Icons.picture_as_pdf_outlined
+                        : Icons.insert_drive_file_outlined,
+                    color: isPdf ? Colors.red : Colors.amber,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        belge['baslik']?.toString() ?? '-',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                      Text(
+                        "${belge['tur'] ?? '-'}  •  ${_formatTarihKisa(eklemeTarihi)}",
+                        style: TextStyle(
+                            color: Colors.grey[500], fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+                if (dosya.isNotEmpty) ...[
+                  GestureDetector(
+                    onTap: () => _acDosya(dosya),
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color:
+                            Colors.blueAccent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Icon(Icons.open_in_new,
+                          color: Colors.blueAccent, size: 15),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: () =>
+                        Share.shareXFiles([XFile(dosya)]),
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Icon(Icons.share_outlined,
+                          color: Colors.green, size: 15),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        }),
+        const Divider(color: Colors.white12, height: 1),
+      ],
+    );
   }
 
   Widget _belgeSection(
@@ -959,6 +1099,10 @@ class _CalisanDetaySheetState extends State<_CalisanDetaySheet> {
                         Icons.medical_services_outlined,
                         Colors.green,
                       ),
+                      if (_firmaBelgeleri.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        _firmaBelgelerSection(),
+                      ],
                       const SizedBox(height: 24),
                     ],
                   ),

@@ -236,10 +236,7 @@ class _FirmaDetayPageState extends State<FirmaDetayPage>
             raporlar: _raporlar,
             onChanged: _loadData,
           ),
-          BelgelerWidget(
-            firmaId: widget.firmaId,
-            belgeler: _belgeler,
-          ),
+          BelgelerWidget(firmaId: widget.firmaId),
         ],
       ),
     );

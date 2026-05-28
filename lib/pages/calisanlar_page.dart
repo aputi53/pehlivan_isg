@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:pehlivan_isg/services/database_service.dart';
+import 'package:pehlivan_isg/services/theme_service.dart';
 import 'package:share_plus/share_plus.dart' show Share, XFile;
 
 class CalisanlarPage extends StatefulWidget {
@@ -126,11 +127,12 @@ class _CalisanlarPageState extends State<CalisanlarPage> {
   void _addCalisanSheet() {
     final adCtrl = TextEditingController();
     final pozCtrl = TextEditingController();
+    final colors = AppColors.of(context);
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF161B22),
+      backgroundColor: colors.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -180,7 +182,7 @@ class _CalisanlarPageState extends State<CalisanlarPage> {
                   _loadData();
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.amber,
+                  backgroundColor: colors.accent,
                   foregroundColor: Colors.black,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
@@ -197,12 +199,13 @@ class _CalisanlarPageState extends State<CalisanlarPage> {
   }
 
   Widget _inputField(TextEditingController ctrl, String label) {
+    final colors = AppColors.of(context);
     return TextField(
       controller: ctrl,
       decoration: InputDecoration(
         labelText: label,
         filled: true,
-        fillColor: const Color(0xFF0D1117),
+        fillColor: colors.input,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
@@ -212,10 +215,11 @@ class _CalisanlarPageState extends State<CalisanlarPage> {
   }
 
   void _openDetay(Map<String, dynamic> calisan) {
+    final colors = AppColors.of(context);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF0D1117),
+      backgroundColor: colors.bg,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),

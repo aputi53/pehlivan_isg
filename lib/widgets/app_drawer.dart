@@ -7,6 +7,7 @@ import 'package:pehlivan_isg/pages/ayarlar_page.dart';
 import 'package:pehlivan_isg/pages/firmalar_page.dart';
 import 'package:pehlivan_isg/pages/profil_page.dart';
 import 'package:pehlivan_isg/pages/takvim_page.dart';
+import 'package:pehlivan_isg/services/theme_service.dart';
 
 class AppDrawer extends StatefulWidget {
   const AppDrawer({super.key});
@@ -64,39 +65,40 @@ class _AppDrawerState extends State<AppDrawer> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Drawer(
       child: Container(
-        color: const Color(0xFF0D1117),
+        color: colors.bg,
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
             // ── PROFİL BAŞLIĞI ──────────────────────
             UserAccountsDrawerHeader(
-              decoration: const BoxDecoration(
-                  color: Color(0xFF161B22)),
+              decoration: BoxDecoration(
+                  color: colors.card),
               accountName: Text(
                 _userName,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: colors.text,
                   fontSize: 15,
                 ),
               ),
               accountEmail: Text(
                 _userTitle,
                 style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
+                    color: colors.text.withValues(alpha: 0.6),
                     fontSize: 13),
               ),
               currentAccountPicture: CircleAvatar(
-                backgroundColor: const Color(0xFFE8B84B),
+                backgroundColor: colors.accent,
                 backgroundImage: _profileImageBase64 != null
                     ? MemoryImage(
                         base64Decode(_profileImageBase64!))
                     : null,
                 child: _profileImageBase64 == null
-                    ? const Icon(Icons.person,
-                        color: Color(0xFF0A0E1A), size: 36)
+                    ? Icon(Icons.person,
+                        color: colors.bg, size: 36)
                     : null,
               ),
             ),
@@ -173,7 +175,7 @@ class _AppDrawerState extends State<AppDrawer> {
             _menuItem(
               icon: Icons.person_outline,
               label: "Profil",
-              color: const Color(0xFFE8B84B),
+              color: AppColors.of(context).accent,
               onTap: () => _navigate(const ProfilPage(),
                   await_: true),
             ),
@@ -182,7 +184,7 @@ class _AppDrawerState extends State<AppDrawer> {
             _menuItem(
               icon: Icons.settings_outlined,
               label: "Ayarlar",
-              color: const Color(0xFFE8B84B),
+              color: AppColors.of(context).accent,
               onTap: () => _navigate(const AyarlarPage()),
             ),
           ],
@@ -202,9 +204,10 @@ class _AppDrawerState extends State<AppDrawer> {
     bool isExternal = false,
     required VoidCallback onTap,
   }) {
+    final colors = AppColors.of(context);
     final itemColor = disabled
         ? Colors.grey[700]!
-        : (color ?? (highlight ? Colors.amber : Colors.white70));
+        : (color ?? (highlight ? colors.accent : Colors.white70));
 
     return ListTile(
       leading: Icon(icon, color: itemColor, size: 22),
@@ -216,7 +219,7 @@ class _AppDrawerState extends State<AppDrawer> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: disabled ? Colors.grey[700] : Colors.white,
+                color: disabled ? Colors.grey[700] : colors.text,
                 fontSize: 14,
               ),
             ),
@@ -249,7 +252,7 @@ class _AppDrawerState extends State<AppDrawer> {
       subtitle: sublabel != null
           ? Text(sublabel,
               style: TextStyle(
-                  color: Colors.grey[600], fontSize: 11))
+                  color: colors.textMuted, fontSize: 11))
           : null,
       onTap: disabled ? null : onTap,
       dense: true,

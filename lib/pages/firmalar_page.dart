@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:pehlivan_isg/pages/firma_detay_page.dart';
 import 'package:pehlivan_isg/services/database_service.dart';
+import 'package:pehlivan_isg/services/theme_service.dart';
 
 class FirmalarPage extends StatefulWidget {
   const FirmalarPage({super.key});
@@ -57,10 +58,11 @@ class _FirmalarPageState extends State<FirmalarPage> {
     final gruplar = await DatabaseService.getGruplarSimple();
     if (!mounted) return;
 
+    final colors = AppColors.of(context);
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF161B22),
+      backgroundColor: colors.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -95,11 +97,11 @@ class _FirmalarPageState extends State<FirmalarPage> {
               const SizedBox(height: 10),
               DropdownButtonFormField<int?>(
                 initialValue: secilenGrupId,
-                dropdownColor: const Color(0xFF161B22),
+                dropdownColor: colors.card,
                 decoration: InputDecoration(
                   labelText: "Grup (opsiyonel)",
                   filled: true,
-                  fillColor: const Color(0xFF0D1117),
+                  fillColor: colors.input,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -131,7 +133,7 @@ class _FirmalarPageState extends State<FirmalarPage> {
                     await _loadData();
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.amber,
+                    backgroundColor: colors.accent,
                     foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
@@ -149,20 +151,21 @@ class _FirmalarPageState extends State<FirmalarPage> {
   }
 
   Future<void> _deleteAll() async {
+    final colors = AppColors.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF161B22),
-        title: const Text("Tüm Firmaları Sil",
-            style: TextStyle(color: Colors.white)),
-        content: const Text(
+        backgroundColor: colors.card,
+        title: Text("Tüm Firmaları Sil",
+            style: TextStyle(color: colors.text)),
+        content: Text(
             "Tüm firmalar ve bağlı veriler (notlar, görseller, belgeler) silinecek. Devam edilsin mi?",
-            style: TextStyle(color: Colors.white70)),
+            style: TextStyle(color: colors.text.withValues(alpha: 0.7))),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("İptal",
-                  style: TextStyle(color: Colors.white54))),
+              child: Text("İptal",
+                  style: TextStyle(color: colors.text.withValues(alpha: 0.54)))),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
               child: const Text("Sil",
@@ -284,13 +287,14 @@ class _FirmalarPageState extends State<FirmalarPage> {
 
   Widget _inputField(TextEditingController ctrl, String label,
       {TextInputType keyboardType = TextInputType.text}) {
+    final colors = AppColors.of(context);
     return TextField(
       controller: ctrl,
       keyboardType: keyboardType,
       decoration: InputDecoration(
         labelText: label,
         filled: true,
-        fillColor: const Color(0xFF0D1117),
+        fillColor: colors.input,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
@@ -328,10 +332,11 @@ class _FirmalarPageState extends State<FirmalarPage> {
   @override
   Widget build(BuildContext context) {
     final filtered = _filtered;
+    final colors = AppColors.of(context);
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF161B22),
-        foregroundColor: Colors.white,
+        backgroundColor: colors.card,
+        foregroundColor: colors.text,
         title: const Text("Firmalar",
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         actions: [
@@ -348,8 +353,8 @@ class _FirmalarPageState extends State<FirmalarPage> {
         ],
       ),
       body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: Colors.amber))
+          ? Center(
+              child: CircularProgressIndicator(color: colors.accent))
           : Column(
               children: [
                 Padding(
@@ -359,9 +364,9 @@ class _FirmalarPageState extends State<FirmalarPage> {
                     decoration: InputDecoration(
                       hintText: "Firma veya grup adı ara...",
                       prefixIcon:
-                          const Icon(Icons.search, color: Colors.amber),
+                          Icon(Icons.search, color: colors.accent),
                       filled: true,
-                      fillColor: const Color(0xFF161B22),
+                      fillColor: colors.card,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -423,11 +428,10 @@ class _FirmalarPageState extends State<FirmalarPage> {
                             return Container(
                               margin: const EdgeInsets.only(bottom: 8),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF161B22),
+                                color: colors.card,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                    color: Colors.white
-                                        .withValues(alpha: 0.06)),
+                                    color: colors.border),
                               ),
                               child: ListTile(
                                 onTap: () async {
@@ -448,20 +452,20 @@ class _FirmalarPageState extends State<FirmalarPage> {
                                   width: 42,
                                   height: 42,
                                   decoration: BoxDecoration(
-                                    color: Colors.amber
+                                    color: colors.accent
                                         .withValues(alpha: 0.12),
                                     borderRadius:
                                         BorderRadius.circular(10),
                                   ),
-                                  child: const Icon(Icons.business,
-                                      color: Colors.amber, size: 22),
+                                  child: Icon(Icons.business,
+                                      color: colors.accent, size: 22),
                                 ),
                                 title: Text(
                                   f['isim'] as String,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: colors.text,
                                     fontWeight: FontWeight.w600,
                                     fontSize: 14,
                                   ),
@@ -476,7 +480,7 @@ class _FirmalarPageState extends State<FirmalarPage> {
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
-                                            color: Colors.amber
+                                            color: colors.accent
                                                 .withValues(alpha: 0.75),
                                             fontSize: 11),
                                       ),
@@ -520,7 +524,7 @@ class _FirmalarPageState extends State<FirmalarPage> {
             ),
       floatingActionButton: FloatingActionButton(
         onPressed: _addFirmaSheet,
-        backgroundColor: Colors.amber,
+        backgroundColor: colors.accent,
         foregroundColor: Colors.black,
         child: const Icon(Icons.add),
       ),

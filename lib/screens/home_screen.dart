@@ -8,6 +8,7 @@ import 'package:pehlivan_isg/pages/raporlar_page.dart';
 import 'package:pehlivan_isg/pages/takvim_page.dart';
 import 'package:pehlivan_isg/screens/saha_denetim_screen.dart';
 import 'package:pehlivan_isg/services/database_service.dart';
+import 'package:pehlivan_isg/services/theme_service.dart';
 import 'package:pehlivan_isg/widgets/app_drawer.dart';
 
 class AnaEkran extends StatefulWidget {
@@ -68,8 +69,8 @@ class _AnaEkranState extends State<AnaEkran> {
       drawer: const AppDrawer(),
       appBar: _buildAppBar(context),
       body: RefreshIndicator(
-        color: Colors.amber,
-        backgroundColor: const Color(0xFF161B22),
+        color: AppColors.of(context).accent,
+        backgroundColor: AppColors.of(context).card,
         onRefresh: _loadStats,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -116,7 +117,7 @@ class _AnaEkranState extends State<AnaEkran> {
                     width: 3,
                     height: 15,
                     decoration: BoxDecoration(
-                      color: Colors.amber,
+                      color: AppColors.of(context).accent,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -147,7 +148,7 @@ class _AnaEkranState extends State<AnaEkran> {
                     baslik: "Saha Denetim",
                     aciklama: "Grup & firma ziyaret takibi",
                     icon: Icons.location_on_outlined,
-                    renk: Colors.amber,
+                    renk: AppColors.of(context).accent,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -227,7 +228,7 @@ class _AnaEkranState extends State<AnaEkran> {
 
   AppBar _buildAppBar(BuildContext context) {
     return AppBar(
-      backgroundColor: const Color(0xFF161B22),
+      backgroundColor: AppColors.of(context).card,
       elevation: 0,
       titleSpacing: 4,
       leading: Builder(
@@ -257,7 +258,7 @@ class _AnaEkranState extends State<AnaEkran> {
                 Text(
                   _selamlama(),
                   style: TextStyle(
-                      color: Colors.grey[500],
+                      color: AppColors.of(context).textMuted,
                       fontSize: 11,
                       fontWeight: FontWeight.normal),
                 ),
@@ -267,8 +268,8 @@ class _AnaEkranState extends State<AnaEkran> {
                       : 'PehlivanİSG',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppColors.of(context).text,
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
@@ -313,20 +314,21 @@ class _StatsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1C2333), Color(0xFF161B22)],
+        gradient: LinearGradient(
+          colors: [colors.cardDark, colors.card],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-            color: Colors.amber.withValues(alpha: 0.3), width: 1.5),
+            color: colors.accent.withValues(alpha: 0.3), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.amber.withValues(alpha: 0.05),
+            color: colors.accent.withValues(alpha: 0.05),
             blurRadius: 20,
             spreadRadius: 2,
           ),
@@ -343,7 +345,7 @@ class _StatsCard extends StatelessWidget {
               onTap: onTapFirma,
             ),
           ),
-          _dikey,
+          _dikey(context),
           Expanded(
             child: _StatItem(
               ikon: Icons.warning_amber_outlined,
@@ -353,12 +355,12 @@ class _StatsCard extends StatelessWidget {
               onTap: onTapSuren,
             ),
           ),
-          _dikey,
+          _dikey(context),
           Expanded(
             child: _StatItem(
               ikon: Icons.task_alt_outlined,
               renk: bekleyenGorev > 0
-                  ? Colors.amber
+                  ? colors.accent
                   : const Color(0xFF81C784),
               deger: '$bekleyenGorev',
               etiket: 'Bekleyen görev',
@@ -370,10 +372,10 @@ class _StatsCard extends StatelessWidget {
     );
   }
 
-  Widget get _dikey => Container(
+  Widget _dikey(BuildContext context) => Container(
         width: 1,
         height: 44,
-        color: Colors.white.withValues(alpha: 0.08),
+        color: AppColors.of(context).border,
       );
 }
 
@@ -413,7 +415,7 @@ class _StatItem extends StatelessWidget {
             etiket,
             textAlign: TextAlign.center,
             style: TextStyle(
-                color: Colors.grey[500], fontSize: 10),
+                color: AppColors.of(context).textMuted, fontSize: 10),
           ),
         ],
       ),
@@ -451,7 +453,7 @@ class _ModulKart extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: const Color(0xFF161B22),
+          color: AppColors.of(context).card,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
               color: renk.withValues(alpha: 0.25), width: 1),
@@ -507,8 +509,8 @@ class _ModulKart extends StatelessWidget {
               baslik,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: AppColors.of(context).text,
                 fontWeight: FontWeight.bold,
                 fontSize: 13,
               ),
@@ -519,7 +521,7 @@ class _ModulKart extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                  color: Colors.grey[600], fontSize: 10),
+                  color: AppColors.of(context).textMuted, fontSize: 10),
             ),
           ],
         ),

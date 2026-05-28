@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:pehlivan_isg/pages/calisanlar_page.dart';
 import 'package:pehlivan_isg/pages/gorsel_rapor_page.dart';
 import 'package:pehlivan_isg/services/database_service.dart';
+import 'package:pehlivan_isg/services/theme_service.dart';
 import 'package:pehlivan_isg/widgets/belgeler_widget.dart';
 
 class FirmaDetayPage extends StatefulWidget {
@@ -61,10 +62,11 @@ class _FirmaDetayPageState extends State<FirmaDetayPage>
   }
 
   void _deleteFirma() {
+    final colors = AppColors.of(context);
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF161B22),
+        backgroundColor: colors.card,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text("Firmayı Sil"),
         content: Text(
@@ -165,23 +167,24 @@ class _FirmaDetayPageState extends State<FirmaDetayPage>
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     if (_loading) {
       return Scaffold(
-        body: const Center(
-            child: CircularProgressIndicator(color: Colors.amber)),
+        body: Center(
+            child: CircularProgressIndicator(color: colors.accent)),
       );
     }
     if (_firma == null) {
       return Scaffold(
-        appBar: AppBar(backgroundColor: const Color(0xFF161B22)),
+        appBar: AppBar(backgroundColor: colors.card),
         body: const Center(child: Text("Firma bulunamadı")),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF161B22),
-        foregroundColor: Colors.white,
+        backgroundColor: colors.card,
+        foregroundColor: colors.text,
         title: Text(
           _firma!['isim'] as String,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -296,10 +299,11 @@ class _GenelTabState extends State<_GenelTab> {
     final mailCtrl =
         TextEditingController(text: widget.firma['mail'] as String? ?? '');
 
+    final colors = AppColors.of(context);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF161B22),
+      backgroundColor: colors.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -350,7 +354,7 @@ class _GenelTabState extends State<_GenelTab> {
                   widget.onUpdated();
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.amber,
+                  backgroundColor: colors.accent,
                   foregroundColor: Colors.black,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
@@ -368,13 +372,14 @@ class _GenelTabState extends State<_GenelTab> {
 
   Widget _field(TextEditingController ctrl, String label,
       {TextInputType keyboardType = TextInputType.text}) {
+    final colors = AppColors.of(context);
     return TextField(
       controller: ctrl,
       keyboardType: keyboardType,
       decoration: InputDecoration(
         labelText: label,
         filled: true,
-        fillColor: const Color(0xFF0D1117),
+        fillColor: colors.input,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
@@ -429,6 +434,7 @@ class _GenelTabState extends State<_GenelTab> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final firma = widget.firma;
     final telefon = firma['telefon'] as String? ?? '';
     final mail = firma['mail'] as String? ?? '';
@@ -443,10 +449,10 @@ class _GenelTabState extends State<_GenelTab> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF161B22),
+            color: colors.card,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-                color: Colors.white.withValues(alpha: 0.07)),
+                color: colors.border),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -456,18 +462,18 @@ class _GenelTabState extends State<_GenelTab> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Colors.amber.withValues(alpha: 0.12),
+                      color: colors.accent.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.business,
-                        color: Colors.amber, size: 24),
+                    child: Icon(Icons.business,
+                        color: colors.accent, size: 24),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       firma['isim'] as String,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: colors.text,
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
@@ -475,8 +481,8 @@ class _GenelTabState extends State<_GenelTab> {
                   ),
                   IconButton(
                     onPressed: _editSheet,
-                    icon: const Icon(Icons.edit_outlined,
-                        color: Colors.amber, size: 18),
+                    icon: Icon(Icons.edit_outlined,
+                        color: colors.accent, size: 18),
                     tooltip: "Düzenle",
                   ),
                 ],
@@ -524,10 +530,10 @@ class _GenelTabState extends State<_GenelTab> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF161B22),
+            color: colors.card,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-                color: Colors.white.withValues(alpha: 0.07)),
+                color: colors.border),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -542,10 +548,10 @@ class _GenelTabState extends State<_GenelTab> {
                       initialValue: _gruplar.any((g) => g['id'] == grupId)
                           ? grupId
                           : null,
-                      dropdownColor: const Color(0xFF161B22),
+                      dropdownColor: colors.card,
                       decoration: InputDecoration(
                         filled: true,
-                        fillColor: const Color(0xFF0D1117),
+                        fillColor: colors.input,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: BorderSide.none,
@@ -574,7 +580,7 @@ class _GenelTabState extends State<_GenelTab> {
                 Text(
                   "Mevcut: $grupAdi",
                   style: TextStyle(
-                      color: Colors.amber.withValues(alpha: 0.7),
+                      color: colors.accent.withValues(alpha: 0.7),
                       fontSize: 11),
                 ),
               ],
@@ -589,15 +595,15 @@ class _GenelTabState extends State<_GenelTab> {
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF161B22),
+              color: colors.card,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.07)),
+                  color: colors.border),
             ),
             child: Row(
               children: [
-                const Icon(Icons.calendar_today_outlined,
-                    color: Colors.amber, size: 18),
+                Icon(Icons.calendar_today_outlined,
+                    color: colors.accent, size: 18),
                 const SizedBox(width: 12),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -612,7 +618,7 @@ class _GenelTabState extends State<_GenelTab> {
                           : "Belirlenmedi",
                       style: TextStyle(
                         color: ziyaretTarihi != null
-                            ? Colors.white
+                            ? colors.text
                             : Colors.grey[600],
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -633,23 +639,23 @@ class _GenelTabState extends State<_GenelTab> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF161B22),
+            color: colors.card,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-                color: Colors.white.withValues(alpha: 0.07)),
+                color: colors.border),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  const Icon(Icons.timer_outlined,
-                      color: Colors.amber, size: 18),
+                  Icon(Icons.timer_outlined,
+                      color: colors.accent, size: 18),
                   const SizedBox(width: 8),
-                  const Text(
+                  Text(
                     "Evrak Geçerlilik Süreleri",
                     style: TextStyle(
-                        color: Colors.white,
+                        color: colors.text,
                         fontWeight: FontWeight.bold,
                         fontSize: 14),
                   ),
@@ -729,30 +735,36 @@ class _GenelTabState extends State<_GenelTab> {
         Icon(icon, color: color, size: 15),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(
-            label,
-            style:
-                const TextStyle(color: Colors.white70, fontSize: 13),
-          ),
+          child: Builder(builder: (context) {
+            final colors = AppColors.of(context);
+            return Text(
+              label,
+              style: TextStyle(
+                  color: colors.text.withValues(alpha: 0.7), fontSize: 13),
+            );
+          }),
         ),
-        DropdownButton<int>(
-          value: options.contains(value) ? value : options.first,
-          dropdownColor: const Color(0xFF1C2333),
-          underline: const SizedBox(),
-          style: const TextStyle(
-              color: Colors.amber,
-              fontWeight: FontWeight.w600,
-              fontSize: 13),
-          items: options
-              .map((y) => DropdownMenuItem(
-                    value: y,
-                    child: Text("$y Yıl"),
-                  ))
-              .toList(),
-          onChanged: (v) {
-            if (v != null) onChanged(v);
-          },
-        ),
+        Builder(builder: (context) {
+          final colors = AppColors.of(context);
+          return DropdownButton<int>(
+            value: options.contains(value) ? value : options.first,
+            dropdownColor: colors.cardDark,
+            underline: const SizedBox(),
+            style: TextStyle(
+                color: colors.accent,
+                fontWeight: FontWeight.w600,
+                fontSize: 13),
+            items: options
+                .map((y) => DropdownMenuItem(
+                      value: y,
+                      child: Text("$y Yıl"),
+                    ))
+                .toList(),
+            onChanged: (v) {
+              if (v != null) onChanged(v);
+            },
+          );
+        }),
       ],
     );
   }
@@ -775,11 +787,12 @@ class _NotlarTab extends StatelessWidget {
     final ctrl = TextEditingController();
     final ImagePicker picker = ImagePicker();
     final List<String> fotoPaths = [];
+    final colors = AppColors.of(context);
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF161B22),
+      backgroundColor: colors.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -814,7 +827,7 @@ class _NotlarTab extends StatelessWidget {
                 decoration: InputDecoration(
                   hintText: "Notunuzu yazın...",
                   filled: true,
-                  fillColor: const Color(0xFF0D1117),
+                  fillColor: colors.input,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -867,7 +880,7 @@ class _NotlarTab extends StatelessWidget {
                     onChanged();
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.amber,
+                    backgroundColor: colors.accent,
                     foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
@@ -885,10 +898,11 @@ class _NotlarTab extends StatelessWidget {
 
   void _deleteNot(BuildContext context, Map<String, dynamic> not) {
     final id = not['id'] as int;
+    final colors = AppColors.of(context);
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF161B22),
+        backgroundColor: colors.card,
         title: const Text("Notu Sil"),
         content: const Text("Bu not silinsin mi?"),
         actions: [
@@ -942,6 +956,7 @@ class _NotlarTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Column(
       children: [
         Expanded(
@@ -970,10 +985,10 @@ class _NotlarTab extends StatelessWidget {
                       margin: const EdgeInsets.only(bottom: 10),
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF161B22),
+                        color: colors.card,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.07)),
+                            color: colors.border),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -999,8 +1014,8 @@ class _NotlarTab extends StatelessWidget {
                           const SizedBox(height: 6),
                           Text(
                             n['metin'] as String,
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 14),
+                            style: TextStyle(
+                                color: colors.text, fontSize: 14),
                           ),
                           if (fotos.isNotEmpty) ...[
                             const SizedBox(height: 8),
@@ -1025,8 +1040,7 @@ class _NotlarTab extends StatelessWidget {
                                         : Container(
                                             width: 64,
                                             height: 64,
-                                            color: const Color(
-                                                0xFF1C2333),
+                                            color: colors.cardDark,
                                           ),
                                   ),
                                 ),
@@ -1041,10 +1055,9 @@ class _NotlarTab extends StatelessWidget {
         ),
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF1C2333),
+            color: colors.cardDark,
             border: Border(
-                top: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.08))),
+                top: BorderSide(color: colors.border)),
           ),
           padding: EdgeInsets.only(
             left: 16, right: 16, top: 12,
@@ -1058,7 +1071,7 @@ class _NotlarTab extends StatelessWidget {
               label: const Text("Not Ekle",
                   style: TextStyle(fontWeight: FontWeight.w600)),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.amber,
+                backgroundColor: colors.accent,
                 foregroundColor: Colors.black,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
@@ -1092,6 +1105,7 @@ class _RaporlarTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Stack(
       children: [
         raporlar.isEmpty
@@ -1127,10 +1141,10 @@ class _RaporlarTab extends StatelessWidget {
                       margin: const EdgeInsets.only(bottom: 10),
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF161B22),
+                        color: colors.card,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                            color: Colors.amber.withValues(alpha: 0.2)),
+                            color: colors.accent.withValues(alpha: 0.2)),
                       ),
                       child: Row(
                         children: [
@@ -1150,11 +1164,11 @@ class _RaporlarTab extends StatelessWidget {
                               width: 56,
                               height: 56,
                               decoration: BoxDecoration(
-                                color: Colors.amber.withValues(alpha: 0.1),
+                                color: colors.accent.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: const Icon(Icons.image_outlined,
-                                  color: Colors.amber, size: 28),
+                              child: Icon(Icons.image_outlined,
+                                  color: colors.accent, size: 28),
                             ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -1162,8 +1176,8 @@ class _RaporlarTab extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(r.baslik,
-                                    style: const TextStyle(
-                                        color: Colors.white,
+                                    style: TextStyle(
+                                        color: colors.text,
                                         fontWeight: FontWeight.w600,
                                         fontSize: 14)),
                                 const SizedBox(height: 4),
@@ -1186,12 +1200,12 @@ class _RaporlarTab extends StatelessWidget {
           right: 16,
           bottom: 16,
           child: FloatingActionButton(
-            backgroundColor: Colors.amber,
+            backgroundColor: colors.accent,
             foregroundColor: Colors.black,
             onPressed: () {
               showModalBottomSheet(
                 context: context,
-                backgroundColor: const Color(0xFF161B22),
+                backgroundColor: colors.card,
                 shape: const RoundedRectangleBorder(
                   borderRadius:
                       BorderRadius.vertical(top: Radius.circular(20)),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pehlivan_isg/pages/firma_detay_page.dart';
 import 'package:pehlivan_isg/services/database_service.dart';
+import 'package:pehlivan_isg/services/theme_service.dart';
 
 class TakvimPage extends StatefulWidget {
   const TakvimPage({super.key});
@@ -48,14 +49,15 @@ class _TakvimPageState extends State<TakvimPage> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     if (_loading) {
       return Scaffold(
         appBar: AppBar(
-            backgroundColor: const Color(0xFF161B22),
-            foregroundColor: Colors.white,
+            backgroundColor: c.card,
+            foregroundColor: c.text,
             title: const Text("Takvim")),
-        body: const Center(
-            child: CircularProgressIndicator(color: Colors.amber)),
+        body: Center(
+            child: CircularProgressIndicator(color: c.accent)),
       );
     }
 
@@ -83,8 +85,8 @@ class _TakvimPageState extends State<TakvimPage> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF161B22),
-        foregroundColor: Colors.white,
+        backgroundColor: c.card,
+        foregroundColor: c.text,
         title: const Text(
           "Takvim / Ajanda",
           style: TextStyle(fontWeight: FontWeight.bold),
@@ -194,6 +196,7 @@ class _TakvimPageState extends State<TakvimPage> {
   }
 
   Widget _kart(Map<String, dynamic> e) {
+    final c = AppColors.of(context);
     final daysLeft = e['daysLeft'] as int;
     final renk = _renk(daysLeft);
     final tarih = e['tarih'] as DateTime;
@@ -224,7 +227,7 @@ class _TakvimPageState extends State<TakvimPage> {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFF161B22),
+          color: c.card,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: renk.withValues(alpha: 0.3)),
         ),
@@ -249,8 +252,8 @@ class _TakvimPageState extends State<TakvimPage> {
                     e['baslik'] as String,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: c.text,
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
                     ),

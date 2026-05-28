@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pehlivan_isg/services/database_service.dart';
+import 'package:pehlivan_isg/services/theme_service.dart';
 
 class AksiyanPage extends StatefulWidget {
   const AksiyanPage({super.key});
@@ -43,6 +44,7 @@ class _AksiyanPageState extends State<AksiyanPage> {
   }
 
   void _yeniAksiyon() {
+    final c = AppColors.of(context);
     final baslikCtrl = TextEditingController();
     final aciklamaCtrl = TextEditingController();
     int? secilenFirmaId;
@@ -51,7 +53,7 @@ class _AksiyanPageState extends State<AksiyanPage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF161B22),
+      backgroundColor: c.card,
       shape: const RoundedRectangleBorder(
         borderRadius:
             BorderRadius.vertical(top: Radius.circular(20)),
@@ -92,7 +94,7 @@ class _AksiyanPageState extends State<AksiyanPage> {
                   decoration: InputDecoration(
                     labelText: "Görev Başlığı *",
                     filled: true,
-                    fillColor: const Color(0xFF0D1117),
+                    fillColor: c.input,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
@@ -107,7 +109,7 @@ class _AksiyanPageState extends State<AksiyanPage> {
                   decoration: InputDecoration(
                     labelText: "Açıklama",
                     filled: true,
-                    fillColor: const Color(0xFF0D1117),
+                    fillColor: c.input,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
@@ -119,11 +121,11 @@ class _AksiyanPageState extends State<AksiyanPage> {
                   key: ValueKey(secilenFirmaId),
                   initialValue: secilenFirmaId,
                   isExpanded: true,
-                  dropdownColor: const Color(0xFF161B22),
+                  dropdownColor: c.card,
                   decoration: InputDecoration(
                     labelText: "Firma (opsiyonel)",
                     filled: true,
-                    fillColor: const Color(0xFF0D1117),
+                    fillColor: c.input,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
@@ -156,11 +158,11 @@ class _AksiyanPageState extends State<AksiyanPage> {
                               .add(const Duration(days: 7)),
                       firstDate: DateTime.now(),
                       lastDate: DateTime(2040),
-                      builder: (c, child) => Theme(
+                      builder: (_, child) => Theme(
                         data: ThemeData.dark().copyWith(
-                          colorScheme: const ColorScheme.dark(
-                            primary: Colors.amber,
-                            surface: Color(0xFF161B22),
+                          colorScheme: ColorScheme.dark(
+                            primary: c.accent,
+                            surface: c.card,
                           ),
                         ),
                         child: child!,
@@ -174,14 +176,14 @@ class _AksiyanPageState extends State<AksiyanPage> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 13),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0D1117),
+                      color: c.input,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       children: [
-                        const Icon(
+                        Icon(
                             Icons.calendar_today_outlined,
-                            color: Colors.amber,
+                            color: c.accent,
                             size: 16),
                         const SizedBox(width: 10),
                         Text(
@@ -190,7 +192,7 @@ class _AksiyanPageState extends State<AksiyanPage> {
                               : "Son Tarih Seç (opsiyonel)",
                           style: TextStyle(
                             color: secilenTarih != null
-                                ? Colors.white
+                                ? c.text
                                 : Colors.grey[500],
                             fontSize: 14,
                           ),
@@ -238,10 +240,11 @@ class _AksiyanPageState extends State<AksiyanPage> {
   }
 
   void _sil(int id) {
+    final c = AppColors.of(context);
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF161B22),
+        backgroundColor: c.card,
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16)),
         title: const Text("Görevi Sil"),
@@ -268,14 +271,15 @@ class _AksiyanPageState extends State<AksiyanPage> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     if (_loading) {
       return Scaffold(
         appBar: AppBar(
-            backgroundColor: const Color(0xFF161B22),
-            foregroundColor: Colors.white,
+            backgroundColor: c.card,
+            foregroundColor: c.text,
             title: const Text("Görev Takibi")),
-        body: const Center(
-            child: CircularProgressIndicator(color: Colors.amber)),
+        body: Center(
+            child: CircularProgressIndicator(color: c.accent)),
       );
     }
 
@@ -318,15 +322,15 @@ class _AksiyanPageState extends State<AksiyanPage> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF161B22),
-        foregroundColor: Colors.white,
+        backgroundColor: c.card,
+        foregroundColor: c.text,
         title: const Text(
           "Görev Takibi",
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.amber,
+        backgroundColor: c.accent,
         foregroundColor: Colors.black,
         onPressed: _yeniAksiyon,
         child: const Icon(Icons.add),
@@ -428,6 +432,7 @@ class _AksiyanPageState extends State<AksiyanPage> {
   }
 
   Widget _aksiyanKart(Map<String, dynamic> a) {
+    final c = AppColors.of(context);
     final done = a['tamamlandi'] as bool;
     final sonTarih = a['sonTarih'] as DateTime?;
     final dl = _daysLeft(sonTarih);
@@ -455,12 +460,12 @@ class _AksiyanPageState extends State<AksiyanPage> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF161B22),
+        color: c.card,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: done
-              ? Colors.white.withValues(alpha: 0.05)
-              : Colors.white.withValues(alpha: 0.08),
+              ? c.border.withValues(alpha: 0.5)
+              : c.border,
         ),
       ),
       child: Row(
@@ -507,7 +512,7 @@ class _AksiyanPageState extends State<AksiyanPage> {
                   style: TextStyle(
                     color: done
                         ? Colors.grey[600]
-                        : Colors.white,
+                        : c.text,
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
                     decoration: done
@@ -531,8 +536,7 @@ class _AksiyanPageState extends State<AksiyanPage> {
                   children: [
                     if (firmaIsim != null) ...[
                       Icon(Icons.business,
-                          color: Colors.amber
-                              .withValues(alpha: 0.6),
+                          color: c.accent.withValues(alpha: 0.6),
                           size: 11),
                       const SizedBox(width: 3),
                       Flexible(
@@ -541,8 +545,7 @@ class _AksiyanPageState extends State<AksiyanPage> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: Colors.amber
-                                .withValues(alpha: 0.7),
+                            color: c.accent.withValues(alpha: 0.7),
                             fontSize: 11,
                           ),
                         ),

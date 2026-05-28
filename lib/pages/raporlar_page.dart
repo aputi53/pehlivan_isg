@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pehlivan_isg/services/database_service.dart';
+import 'package:pehlivan_isg/services/theme_service.dart';
 import 'package:pehlivan_isg/pages/gorsel_rapor_page.dart';
 
 class RaporlarPage extends StatefulWidget {
@@ -44,9 +45,10 @@ class _RaporlarPageState extends State<RaporlarPage>
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0D1117),
+        backgroundColor: c.bg,
         title: const Text("Raporlar",
             style: TextStyle(fontWeight: FontWeight.bold)),
         leading: IconButton(
@@ -195,11 +197,12 @@ class _OzetKart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final widget = Container(
       width: genislik,
       padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
       decoration: BoxDecoration(
-        color: const Color(0xFF161B22),
+        color: c.card,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: renk.withValues(alpha: 0.25)),
       ),
@@ -244,15 +247,16 @@ class _TamamlanmaBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final oran = toplam == 0 ? 0.0 : gidildi / toplam;
     final yuzde = (oran * 100).toStringAsFixed(0);
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF161B22),
+        color: c.card,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+        border: Border.all(color: c.border),
       ),
       child: Column(
         children: [
@@ -263,8 +267,8 @@ class _TamamlanmaBar extends StatelessWidget {
                   style:
                       const TextStyle(color: Colors.white70, fontSize: 13)),
               Text("%$yuzde",
-                  style: const TextStyle(
-                      color: Colors.amber,
+                  style: TextStyle(
+                      color: c.accent,
                       fontWeight: FontWeight.w800,
                       fontSize: 16)),
             ],
@@ -275,9 +279,9 @@ class _TamamlanmaBar extends StatelessWidget {
             child: LinearProgressIndicator(
               value: oran,
               minHeight: 8,
-              backgroundColor: Colors.white12,
+              backgroundColor: c.border,
               valueColor:
-                  const AlwaysStoppedAnimation<Color>(Colors.amber),
+                  AlwaysStoppedAnimation<Color>(c.accent),
             ),
           ),
         ],
@@ -294,6 +298,7 @@ class _GorselRaporlarTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     if (raporlar.isEmpty) {
       return Center(
         child: Column(
@@ -336,21 +341,21 @@ class _GorselRaporlarTab extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFF161B22),
+              color: c.card,
               borderRadius: BorderRadius.circular(12),
               border:
-                  Border.all(color: Colors.amber.withValues(alpha: 0.15)),
+                  Border.all(color: c.accent.withValues(alpha: 0.15)),
             ),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.amber.withValues(alpha: 0.1),
+                    color: c.accent.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.description_outlined,
-                      color: Colors.amber, size: 22),
+                  child: Icon(Icons.description_outlined,
+                      color: c.accent, size: 22),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -358,14 +363,14 @@ class _GorselRaporlarTab extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(r['baslik'] as String,
-                          style: const TextStyle(
-                              color: Colors.white,
+                          style: TextStyle(
+                              color: c.text,
                               fontWeight: FontWeight.w600,
                               fontSize: 14)),
                       const SizedBox(height: 3),
                       Text(r['firmaIsim'] as String,
                           style: TextStyle(
-                              color: Colors.amber.withValues(alpha: 0.8),
+                              color: c.accent.withValues(alpha: 0.8),
                               fontSize: 12)),
                       Text(
                         "${tarih.day.toString().padLeft(2, '0')}.${tarih.month.toString().padLeft(2, '0')}.${tarih.year}",

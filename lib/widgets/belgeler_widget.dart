@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:pehlivan_isg/services/database_service.dart';
+import 'package:pehlivan_isg/services/theme_service.dart';
 import 'package:share_plus/share_plus.dart' show Share, XFile;
 
 // Kategori tanımları
@@ -205,6 +206,7 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
   // ─── TEK BELGE EKLE ────────────────────────────────
 
   Future<void> _belgeEkleSheet() async {
+    final c = AppColors.of(context);
     String? secilenTur =
         _kategoriTurler[_secilenKategori]?.first ?? _turler.first;
     int? secilenCalisanId;
@@ -218,7 +220,7 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF161B22),
+      backgroundColor: c.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -256,7 +258,7 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
                   decoration: InputDecoration(
                     labelText: "Belge Adı",
                     filled: true,
-                    fillColor: const Color(0xFF0D1117),
+                    fillColor: c.input,
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none),
@@ -265,11 +267,11 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String>(
                   initialValue: secilenTur,
-                  dropdownColor: const Color(0xFF161B22),
+                  dropdownColor: c.card,
                   decoration: InputDecoration(
                     labelText: "Belge Türü",
                     filled: true,
-                    fillColor: const Color(0xFF0D1117),
+                    fillColor: c.input,
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none),
@@ -286,11 +288,11 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
                     key: ValueKey(secilenCalisanId),
                     initialValue: secilenCalisanId,
                     isExpanded: true,
-                    dropdownColor: const Color(0xFF161B22),
+                    dropdownColor: c.card,
                     decoration: InputDecoration(
                       labelText: "Çalışana Bağla (opsiyonel)",
                       filled: true,
-                      fillColor: const Color(0xFF0D1117),
+                      fillColor: c.input,
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none),
@@ -318,11 +320,11 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
                           gecerlilikTarihi ?? DateTime.now(),
                       firstDate: DateTime(2020),
                       lastDate: DateTime(2040),
-                      builder: (c, child) => Theme(
+                      builder: (_, child) => Theme(
                         data: ThemeData.dark().copyWith(
-                          colorScheme: const ColorScheme.dark(
-                            primary: Colors.amber,
-                            surface: Color(0xFF161B22),
+                          colorScheme: ColorScheme.dark(
+                            primary: c.accent,
+                            surface: c.card,
                           ),
                         ),
                         child: child!,
@@ -336,14 +338,14 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0D1117),
+                      color: c.input,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       children: [
-                        const Icon(
+                        Icon(
                             Icons.calendar_today_outlined,
-                            color: Colors.amber,
+                            color: c.accent,
                             size: 16),
                         const SizedBox(width: 8),
                         Text(
@@ -352,7 +354,7 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
                               : "Geçerlilik Tarihi (opsiyonel)",
                           style: TextStyle(
                             color: gecerlilikTarihi != null
-                                ? Colors.white
+                                ? c.text
                                 : Colors.grey[500],
                             fontSize: 13,
                           ),
@@ -492,10 +494,11 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
   }
 
   void _belgeSil(Map<String, dynamic> belge) {
+    final c = AppColors.of(context);
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF161B22),
+        backgroundColor: c.card,
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16)),
         title: const Text("Belgeyi Sil"),
@@ -542,9 +545,10 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     if (_loading) {
-      return const Center(
-          child: CircularProgressIndicator(color: Colors.amber));
+      return Center(
+          child: CircularProgressIndicator(color: c.accent));
     }
 
     return Column(
@@ -574,13 +578,12 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
                   decoration: BoxDecoration(
                     color: selected
                         ? color.withValues(alpha: 0.18)
-                        : const Color(0xFF161B22),
+                        : c.card,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: selected
                           ? color
-                          : Colors.white
-                              .withValues(alpha: 0.08),
+                          : c.border,
                       width: selected ? 1.5 : 1,
                     ),
                   ),
@@ -616,8 +619,7 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
                         decoration: BoxDecoration(
                           color: selected
                               ? color.withValues(alpha: 0.25)
-                              : Colors.white
-                                  .withValues(alpha: 0.07),
+                              : c.border,
                           borderRadius:
                               BorderRadius.circular(6),
                         ),
@@ -684,11 +686,9 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
                       margin: const EdgeInsets.only(bottom: 7),
                       padding: const EdgeInsets.all(11),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0D1117),
+                        color: c.bg,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                            color: Colors.white
-                                .withValues(alpha: 0.07)),
+                        border: Border.all(color: c.border),
                       ),
                       child: Row(
                         children: [
@@ -743,8 +743,8 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
                                   maxLines: 2,
                                   overflow:
                                       TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: c.text,
                                     fontWeight: FontWeight.w600,
                                     fontSize: 12,
                                   ),
@@ -841,10 +841,9 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
         // ── ALT BAR ──────────────────────────────────
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF1C2333),
+            color: c.cardDark,
             border: Border(
-                top: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.08))),
+                top: BorderSide(color: c.border)),
           ),
           padding: EdgeInsets.only(
             left: 12,
@@ -884,7 +883,7 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.amber,
+                    backgroundColor: c.accent,
                     foregroundColor: Colors.black,
                     padding:
                         const EdgeInsets.symmetric(vertical: 10),

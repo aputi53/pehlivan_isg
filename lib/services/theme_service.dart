@@ -76,6 +76,72 @@ class ThemeService extends ValueNotifier<ThemeConfig> {
 
 final themeService = ThemeService();
 
+// ─── Semantik renk uzantısı ──────────────────────────────
+@immutable
+class AppColors extends ThemeExtension<AppColors> {
+  final Color bg;
+  final Color card;
+  final Color cardDark;
+  final Color input;
+  final Color accent;
+  final Color text;
+  final Color textMuted;
+  final Color border;
+
+  const AppColors._({
+    required this.bg,
+    required this.card,
+    required this.cardDark,
+    required this.input,
+    required this.accent,
+    required this.text,
+    required this.textMuted,
+    required this.border,
+  });
+
+  static AppColors of(BuildContext context) =>
+      Theme.of(context).extension<AppColors>() ??
+      AppColors.dark(const Color(0xFFE8B84B));
+
+  factory AppColors.dark(Color accent) => AppColors._(
+        bg: const Color(0xFF0D1117),
+        card: const Color(0xFF161B22),
+        cardDark: const Color(0xFF1C2333),
+        input: const Color(0xFF0D1117),
+        accent: accent,
+        text: Colors.white,
+        textMuted: const Color(0xFF8B949E),
+        border: Colors.white.withValues(alpha: 0.08),
+      );
+
+  factory AppColors.light(Color accent) => AppColors._(
+        bg: const Color(0xFFF0F2F5),
+        card: Colors.white,
+        cardDark: const Color(0xFFE8EAF0),
+        input: const Color(0xFFE8EAF0),
+        accent: accent,
+        text: const Color(0xFF1A1A2E),
+        textMuted: const Color(0xFF6B7280),
+        border: Colors.black.withValues(alpha: 0.08),
+      );
+
+  @override
+  AppColors copyWith({
+    Color? bg, Color? card, Color? cardDark, Color? input,
+    Color? accent, Color? text, Color? textMuted, Color? border,
+  }) =>
+      AppColors._(
+        bg: bg ?? this.bg, card: card ?? this.card,
+        cardDark: cardDark ?? this.cardDark, input: input ?? this.input,
+        accent: accent ?? this.accent, text: text ?? this.text,
+        textMuted: textMuted ?? this.textMuted, border: border ?? this.border,
+      );
+
+  @override
+  AppColors lerp(ThemeExtension<AppColors>? other, double t) =>
+      t < 0.5 ? this : (other as AppColors? ?? this);
+}
+
 // ─── ThemeData üreteci ───────────────────────────────────
 ThemeData buildThemeData(Color accent, Brightness brightness) {
   final isDark = brightness == Brightness.dark;
@@ -84,24 +150,22 @@ ThemeData buildThemeData(Color accent, Brightness brightness) {
     brightness: brightness,
   ).copyWith(primary: accent, secondary: accent);
 
+  final appColors =
+      isDark ? AppColors.dark(accent) : AppColors.light(accent);
+
   return ThemeData(
     brightness: brightness,
     colorScheme: cs,
     useMaterial3: false,
-    scaffoldBackgroundColor:
-        isDark ? const Color(0xFF0D1117) : const Color(0xFFF0F2F5),
+    extensions: [appColors],
+    scaffoldBackgroundColor: appColors.bg,
     appBarTheme: AppBarTheme(
-      backgroundColor:
-          isDark ? const Color(0xFF161B22) : const Color(0xFFFFFFFF),
-      foregroundColor: isDark ? Colors.white : const Color(0xFF1A1A2E),
+      backgroundColor: appColors.card,
+      foregroundColor: appColors.text,
       elevation: 0,
     ),
-    cardColor:
-        isDark ? const Color(0xFF161B22) : const Color(0xFFFFFFFF),
-    drawerTheme: DrawerThemeData(
-      backgroundColor:
-          isDark ? const Color(0xFF0D1117) : const Color(0xFFFFFFFF),
-    ),
+    cardColor: appColors.card,
+    drawerTheme: DrawerThemeData(backgroundColor: appColors.bg),
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith(
           (s) => s.contains(WidgetState.selected) ? accent : null),

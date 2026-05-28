@@ -16,7 +16,7 @@ class DatabaseService {
 
     return openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
       onOpen: (db) => db.execute('PRAGMA foreign_keys = ON'),
@@ -109,6 +109,19 @@ class DatabaseService {
       )
     ''');
 
+    await db.execute('''
+      CREATE TABLE aksiyonlar (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        firmaId INTEGER,
+        baslik TEXT NOT NULL,
+        aciklama TEXT,
+        sonTarih TEXT,
+        tamamlandi INTEGER NOT NULL DEFAULT 0,
+        olusturmaTarihi TEXT NOT NULL,
+        FOREIGN KEY (firmaId) REFERENCES firmalar(id) ON DELETE SET NULL
+      )
+    ''');
+
     // Onboarding
     await db.insert('gruplar', {
       'grupAdi': 'ÖRNEK GRUP',
@@ -182,6 +195,21 @@ class DatabaseService {
 
     if (oldVersion < 4) {
       await db.execute('ALTER TABLE belgeler ADD COLUMN calisanId INTEGER');
+    }
+
+    if (oldVersion < 5) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS aksiyonlar (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          firmaId INTEGER,
+          baslik TEXT NOT NULL,
+          aciklama TEXT,
+          sonTarih TEXT,
+          tamamlandi INTEGER NOT NULL DEFAULT 0,
+          olusturmaTarihi TEXT NOT NULL,
+          FOREIGN KEY (firmaId) REFERENCES firmalar(id) ON DELETE SET NULL
+        )
+      ''');
     }
   }
 
@@ -748,6 +776,130 @@ class DatabaseService {
       }
     }
     return result;
+  }
+
+  // ─── TAKVİM ETKİNLİKLERİ ──────────────────────────────
+
+  static Future<List<Map<String, dynamic>>> getTakvimEtkinlikleri() async {
+    final database = await db;
+    final today = DateTime.now();
+    final todayNorm = DateTime(today.year, today.month, today.day);
+    final List<Map<String, dynamic>> result = [];
+
+    // 1. calisan_belgeleri → expiry hesapla
+    final cRows = await database.rawQuery('''
+      SELECT cb.id, cb.tur, cb.baslik, cb.belgeTarihi, cb.gecerlilikYil,
+             c.ad AS calisanAd, f.isim AS firmaIsim, f.id AS firmaId
+      FROM calisan_belgeleri cb
+      JOIN calisanlar c ON cb.calisanId = c.id
+      JOIN firmalar f ON cb.firmaId = f.id
+    ''');
+
+    for (final row in cRows) {
+      final belgeTarihi = DateTime.parse(row['belgeTarihi'] as String);
+      final gecerlilikYil = row['gecerlilikYil'] as int;
+      final expiry = DateTime(
+        belgeTarihi.year + gecerlilikYil,
+        belgeTarihi.month,
+        belgeTarihi.day,
+      );
+      final daysLeft = expiry.difference(todayNorm).inDays;
+      result.add({
+        'tip': row['tur'] == 'egitim' ? 'Eğitim' : 'Muayene',
+        'baslik': row['baslik'],
+        'firmaIsim': row['firmaIsim'],
+        'firmaId': row['firmaId'],
+        'calisanAd': row['calisanAd'],
+        'daysLeft': daysLeft,
+        'tarih': expiry,
+      });
+    }
+
+    // 2. belgeler.gecerlilikTarihi
+    final bRows = await database.rawQuery('''
+      SELECT b.id, b.baslik, b.tur, b.gecerlilikTarihi,
+             f.isim AS firmaIsim, f.id AS firmaId
+      FROM belgeler b
+      JOIN firmalar f ON b.firmaId = f.id
+      WHERE b.gecerlilikTarihi IS NOT NULL
+    ''');
+
+    for (final row in bRows) {
+      final expiry =
+          DateTime.parse(row['gecerlilikTarihi'] as String);
+      final daysLeft = expiry.difference(todayNorm).inDays;
+      result.add({
+        'tip': row['tur'] ?? 'Belge',
+        'baslik': row['baslik'],
+        'firmaIsim': row['firmaIsim'],
+        'firmaId': row['firmaId'],
+        'calisanAd': null,
+        'daysLeft': daysLeft,
+        'tarih': expiry,
+      });
+    }
+
+    result.sort((a, b) =>
+        (a['daysLeft'] as int).compareTo(b['daysLeft'] as int));
+    return result;
+  }
+
+  // ─── AKSİYONLAR ──────────────────────────────────────
+
+  static Future<List<Map<String, dynamic>>> getAksiyonlar() async {
+    final database = await db;
+    final rows = await database.rawQuery('''
+      SELECT a.*, f.isim AS firmaIsim
+      FROM aksiyonlar a
+      LEFT JOIN firmalar f ON a.firmaId = f.id
+      ORDER BY a.tamamlandi ASC, a.sonTarih ASC NULLS LAST
+    ''');
+    return rows.map((r) => {
+          'id': r['id'],
+          'firmaId': r['firmaId'],
+          'firmaIsim': r['firmaIsim'],
+          'baslik': r['baslik'],
+          'aciklama': r['aciklama'],
+          'sonTarih': r['sonTarih'] != null
+              ? DateTime.parse(r['sonTarih'] as String)
+              : null,
+          'tamamlandi': (r['tamamlandi'] as int) == 1,
+          'olusturmaTarihi':
+              DateTime.parse(r['olusturmaTarihi'] as String),
+        }).toList();
+  }
+
+  static Future<int> insertAksiyon({
+    int? firmaId,
+    required String baslik,
+    String? aciklama,
+    DateTime? sonTarih,
+  }) async {
+    final database = await db;
+    return database.insert('aksiyonlar', {
+      'firmaId': firmaId,
+      'baslik': baslik,
+      'aciklama': aciklama,
+      'sonTarih': sonTarih?.toIso8601String(),
+      'tamamlandi': 0,
+      'olusturmaTarihi': DateTime.now().toIso8601String(),
+    });
+  }
+
+  static Future<void> toggleAksiyon(int id, bool tamamlandi) async {
+    final database = await db;
+    await database.update(
+      'aksiyonlar',
+      {'tamamlandi': tamamlandi ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  static Future<void> deleteAksiyon(int id) async {
+    final database = await db;
+    await database.delete('aksiyonlar',
+        where: 'id = ?', whereArgs: [id]);
   }
 
   // ─── RAPORLAR MODÜLü ────────────────────────────────

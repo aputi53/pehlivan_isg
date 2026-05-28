@@ -1,10 +1,12 @@
-import 'dart:convert'; // Base64 resmi çözmek için eklendi
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // Güvenli hafıza için eklendi
-import 'package:pehlivan_isg/pages/denetimler_page.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:pehlivan_isg/pages/aksiyon_page.dart';
+import 'package:pehlivan_isg/pages/ayarlar_page.dart';
 import 'package:pehlivan_isg/pages/firmalar_page.dart';
 import 'package:pehlivan_isg/pages/profil_page.dart';
-import 'package:pehlivan_isg/pages/ayarlar_page.dart';
+import 'package:pehlivan_isg/pages/takvim_page.dart';
 
 class AppDrawer extends StatefulWidget {
   const AppDrawer({super.key});
@@ -14,7 +16,6 @@ class AppDrawer extends StatefulWidget {
 }
 
 class _AppDrawerState extends State<AppDrawer> {
-  // SÜREÇ ANALİZİ: Profil havuzuna erişmek için şifreli depolama nesnemiz
   final _storage = const FlutterSecureStorage(
     aOptions: AndroidOptions(
       encryptedSharedPreferences: true,
@@ -23,7 +24,7 @@ class _AppDrawerState extends State<AppDrawer> {
   );
 
   String _userName = "Yükleniyor...";
-  String _userTitle = "Kullanıcı Paneli";
+  String _userTitle = "İSG Uzmanı";
   String? _profileImageBase64;
 
   @override
@@ -32,13 +33,11 @@ class _AppDrawerState extends State<AppDrawer> {
     _loadDrawerData();
   }
 
-  // Hafızadaki güncel profil verilerini arka planda okuyan fonksiyon
   Future<void> _loadDrawerData() async {
     try {
       final name = await _storage.read(key: "user_name");
       final title = await _storage.read(key: "user_title");
       final image = await _storage.read(key: "user_image_base64");
-
       if (mounted) {
         setState(() {
           if (name != null && name.isNotEmpty) _userName = name;
@@ -51,6 +50,18 @@ class _AppDrawerState extends State<AppDrawer> {
     }
   }
 
+  void _navigate(Widget page, {bool await_ = false}) async {
+    Navigator.pop(context);
+    if (await_) {
+      await Navigator.push(context,
+          MaterialPageRoute(builder: (_) => page));
+      _loadDrawerData();
+    } else {
+      Navigator.push(context,
+          MaterialPageRoute(builder: (_) => page));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Drawer(
@@ -59,12 +70,10 @@ class _AppDrawerState extends State<AppDrawer> {
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-
-            // 🔷 DİNAMİK ÜST PROFİL ALANI
+            // ── PROFİL BAŞLIĞI ──────────────────────
             UserAccountsDrawerHeader(
               decoration: const BoxDecoration(
-                color: Color(0xFF161B22),
-              ),
+                  color: Color(0xFF161B22)),
               accountName: Text(
                 _userName,
                 style: const TextStyle(
@@ -76,106 +85,172 @@ class _AppDrawerState extends State<AppDrawer> {
               accountEmail: Text(
                 _userTitle,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
-                  fontSize: 13,
-                ),
+                    color: Colors.white.withValues(alpha: 0.6),
+                    fontSize: 13),
               ),
-              // SÜREÇ ANALİZİ: Resim varsa Base64'ten çözer, yoksa varsayılan ikonu sarı arka planla gösterir
               currentAccountPicture: CircleAvatar(
                 backgroundColor: const Color(0xFFE8B84B),
                 backgroundImage: _profileImageBase64 != null
-                    ? MemoryImage(base64Decode(_profileImageBase64!))
+                    ? MemoryImage(
+                        base64Decode(_profileImageBase64!))
                     : null,
                 child: _profileImageBase64 == null
-                    ? const Icon(Icons.person, color: Color(0xFF0A0E1A), size: 36)
+                    ? const Icon(Icons.person,
+                        color: Color(0xFF0A0E1A), size: 36)
                     : null,
               ),
             ),
 
-            // 🏠 ANA SAYFA
-            ListTile(
-              leading: const Icon(Icons.home, color: Colors.white70),
-              title: const Text('Ana Sayfa', style: TextStyle(color: Colors.white)),
-              onTap: () {
-                Navigator.pop(context);
-              },
+            // ── ANA SAYFA ──────────────────────────
+            _menuItem(
+              icon: Icons.home_outlined,
+              label: "Ana Sayfa",
+              onTap: () => Navigator.pop(context),
             ),
 
-            // 📋 DENETİMLER
-            ListTile(
-              leading: const Icon(Icons.assignment, color: Colors.white70),
-              title: const Text('Denetimler', style: TextStyle(color: Colors.white)),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const DenetimlerPage(),
-                  ),
-                );
-              },
+            // ── FİRMALAR ───────────────────────────
+            _menuItem(
+              icon: Icons.business_outlined,
+              label: "Firmalar",
+              onTap: () => _navigate(const FirmalarPage()),
             ),
 
-            // 🏢 FİRMALAR
-            ListTile(
-              leading: const Icon(Icons.business, color: Colors.white70),
-              title: const Text('Firmalar', style: TextStyle(color: Colors.white)),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const FirmalarPage(),
-                  ),
-                );
-              },
+            // ── TAKVİM / AJANDA ────────────────────
+            _menuItem(
+              icon: Icons.calendar_month_outlined,
+              label: "Takvim / Ajanda",
+              badge: null,
+              onTap: () => _navigate(const TakvimPage()),
+              highlight: true,
             ),
 
-            // ⚠️ RAMAK KALA (şimdilik pasif)
-            ListTile(
-              leading: const Icon(Icons.warning, color: Colors.white70),
-              title: const Text('Ramak Kala', style: TextStyle(color: Colors.white)),
-              onTap: () {
-                Navigator.pop(context);
-              },
+            // ── GÖREV TAKİBİ ───────────────────────
+            _menuItem(
+              icon: Icons.task_alt_outlined,
+              label: "Görev Takibi",
+              onTap: () => _navigate(const AksiyanPage()),
+              highlight: true,
             ),
 
-            const Divider(color: Colors.white12),
-
-            // 👤 PROFİL
-            ListTile(
-              leading: const Icon(Icons.person_outline, color: Color(0xFFE8B84B)),
-              title: const Text('Profil', style: TextStyle(color: Colors.white)),
+            // ── İSG KATİP ─────────────────────────
+            _menuItem(
+              icon: Icons.open_in_browser_outlined,
+              label: "İSG Katip",
+              sublabel: "isgkatip.csgb.gov.tr",
               onTap: () async {
                 Navigator.pop(context);
-                // SÜREÇ ANALİZİ: Profil sayfasından geri dönüldüğünde verileri anında tazelemek için await kullandık
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ProfilPage(),
-                  ),
-                );
-                _loadDrawerData(); // Profil sayfasında değişiklik yapılıp dönülürse menüyü günceller
+                final uri = Uri.parse(
+                    'https://isgkatip.csgb.gov.tr');
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri,
+                      mode: LaunchMode.externalApplication);
+                }
               },
+              isExternal: true,
             ),
 
-            // ⚙️ AYARLAR
-            ListTile(
-              leading: const Icon(Icons.settings_outlined, color: Color(0xFFE8B84B)),
-              title: const Text('Ayarlar', style: TextStyle(color: Colors.white)),
+            // ── RAMAK KALA (yakında) ───────────────
+            _menuItem(
+              icon: Icons.warning_amber_outlined,
+              label: "Ramak Kala",
+              sublabel: "Yakında",
               onTap: () {
                 Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const AyarlarPage(),
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content:
+                        Text("Ramak Kala modülü yakında aktif olacak."),
+                    behavior: SnackBarBehavior.floating,
                   ),
                 );
               },
+              disabled: true,
+            ),
+
+            const Divider(color: Colors.white12, height: 24),
+
+            // ── PROFİL ─────────────────────────────
+            _menuItem(
+              icon: Icons.person_outline,
+              label: "Profil",
+              color: const Color(0xFFE8B84B),
+              onTap: () => _navigate(const ProfilPage(),
+                  await_: true),
+            ),
+
+            // ── AYARLAR ────────────────────────────
+            _menuItem(
+              icon: Icons.settings_outlined,
+              label: "Ayarlar",
+              color: const Color(0xFFE8B84B),
+              onTap: () => _navigate(const AyarlarPage()),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _menuItem({
+    required IconData icon,
+    required String label,
+    String? sublabel,
+    String? badge,
+    Color? color,
+    bool highlight = false,
+    bool disabled = false,
+    bool isExternal = false,
+    required VoidCallback onTap,
+  }) {
+    final itemColor = disabled
+        ? Colors.grey[700]!
+        : (color ?? (highlight ? Colors.amber : Colors.white70));
+
+    return ListTile(
+      leading: Icon(icon, color: itemColor, size: 22),
+      title: Row(
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: disabled ? Colors.grey[700] : Colors.white,
+              fontSize: 14,
+            ),
+          ),
+          if (isExternal) ...[
+            const SizedBox(width: 4),
+            Icon(Icons.open_in_new,
+                color: Colors.grey[600], size: 12),
+          ],
+          if (badge != null) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                badge,
+                style: const TextStyle(
+                    color: Colors.red,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ],
+      ),
+      subtitle: sublabel != null
+          ? Text(sublabel,
+              style: TextStyle(
+                  color: Colors.grey[600], fontSize: 11))
+          : null,
+      onTap: disabled ? null : onTap,
+      dense: true,
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
     );
   }
 }

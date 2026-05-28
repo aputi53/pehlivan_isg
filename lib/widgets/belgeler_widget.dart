@@ -285,6 +285,7 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
                   DropdownButtonFormField<int?>(
                     key: ValueKey(secilenCalisanId),
                     initialValue: secilenCalisanId,
+                    isExpanded: true,
                     dropdownColor: const Color(0xFF161B22),
                     decoration: InputDecoration(
                       labelText: "Çalışana Bağla (opsiyonel)",

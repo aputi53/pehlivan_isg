@@ -210,11 +210,15 @@ class _AppDrawerState extends State<AppDrawer> {
       leading: Icon(icon, color: itemColor, size: 22),
       title: Row(
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: disabled ? Colors.grey[700] : Colors.white,
-              fontSize: 14,
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: disabled ? Colors.grey[700] : Colors.white,
+                fontSize: 14,
+              ),
             ),
           ),
           if (isExternal) ...[

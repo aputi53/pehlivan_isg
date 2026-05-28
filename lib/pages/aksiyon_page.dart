@@ -118,6 +118,7 @@ class _AksiyanPageState extends State<AksiyanPage> {
                 DropdownButtonFormField<int?>(
                   key: ValueKey(secilenFirmaId),
                   initialValue: secilenFirmaId,
+                  isExpanded: true,
                   dropdownColor: const Color(0xFF161B22),
                   decoration: InputDecoration(
                     labelText: "Firma (opsiyonel)",

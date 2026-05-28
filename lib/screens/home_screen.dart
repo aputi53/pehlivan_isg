@@ -1,142 +1,121 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-import 'saha_denetim_screen.dart';
-import '../pages/raporlar_page.dart';
-import '../widgets/app_drawer.dart';
+import 'package:pehlivan_isg/pages/aksiyon_page.dart';
+import 'package:pehlivan_isg/pages/firmalar_page.dart';
+import 'package:pehlivan_isg/pages/raporlar_page.dart';
+import 'package:pehlivan_isg/pages/takvim_page.dart';
+import 'package:pehlivan_isg/screens/saha_denetim_screen.dart';
+import 'package:pehlivan_isg/services/database_service.dart';
+import 'package:pehlivan_isg/widgets/app_drawer.dart';
 
-class AnaEkran extends StatelessWidget {
+class AnaEkran extends StatefulWidget {
   const AnaEkran({super.key});
+
+  @override
+  State<AnaEkran> createState() => _AnaEkranState();
+}
+
+class _AnaEkranState extends State<AnaEkran> {
+  static const _storage = FlutterSecureStorage(
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+      sharedPreferencesName: 'PehlivanISG_Storage',
+    ),
+  );
+
+  String _kullaniciAdi = '';
+  int _firmaCount = 0;
+  int _surenDolan = 0;
+  int _bekleyenGorev = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    final name = await _storage.read(key: 'user_name');
+    final firmalar = await DatabaseService.getAllFirmalar();
+    final expiring =
+        await DatabaseService.getExpiringBelgeler(daysThreshold: 30);
+    final aksiyonlar = await DatabaseService.getAksiyonlar();
+    final bekleyen =
+        aksiyonlar.where((a) => !(a['tamamlandi'] as bool)).length;
+
+    if (mounted) {
+      setState(() {
+        _kullaniciAdi = name ?? '';
+        _firmaCount = firmalar.length;
+        _surenDolan = expiring.length;
+        _bekleyenGorev = bekleyen;
+      });
+    }
+  }
+
+  String _selamlama() {
+    final h = DateTime.now().hour;
+    if (h < 12) return 'Günaydın';
+    if (h < 18) return 'İyi günler';
+    return 'İyi akşamlar';
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(),
-      drawer: const AppDrawer(),
       backgroundColor: const Color(0xFF0D1117),
-      body: SafeArea(
+      drawer: const AppDrawer(),
+      appBar: _buildAppBar(context),
+      body: RefreshIndicator(
+        color: Colors.amber,
+        backgroundColor: const Color(0xFF161B22),
+        onRefresh: _loadStats,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 0.5),
-
-              // ANA LOGO
+              // ── LOGO ────────────────────────────────
               Center(
                 child: Image.asset(
                   'assets/logo.png',
-                  width: 500,
+                  width: double.infinity,
+                  height: 80,
                   fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) {
-                    return const Icon(Icons.error_outline,
-                        color: Colors.red, size: 50);
-                  },
+                  errorBuilder: (_, __, ___) => const SizedBox(height: 80),
                 ),
               ),
+              const SizedBox(height: 16),
 
-              const SizedBox(height: 10),
-
-              /* ---------- ANA KART ---------- */
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 23, horizontal: 24),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1C2333), Color(0xFF161B22)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: Colors.amber.withValues(alpha: 0.50),
-                    width: 2.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color:Colors.amber.withValues(alpha: 0.06),
-                      blurRadius: 30,
-                      spreadRadius: 4,
-                    ),
-                  ],
+              // ── CANLI İSTATİSTİK KARTI ──────────────
+              _StatsCard(
+                firmaCount: _firmaCount,
+                surenDolan: _surenDolan,
+                bekleyenGorev: _bekleyenGorev,
+                onTapSuren: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const TakvimPage()),
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      flex: 1,
-                      child: Center(
-                        child: Image.asset(
-                          'assets/logo_sari.png',
-                          width: 75,
-                          height: 75,
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Icon(
-                              Icons.shield_outlined,
-                              color: Colors.amber.withValues(alpha: 0.38),
-                              size: 50,
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(width: 25),
-
-                    Expanded(
-                      flex: 2,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          const Text(
-                            "İSG",
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.amber,
-                              letterSpacing: 2,
-                            ),
-                          ),
-                          const Text(
-                            "YÖNETİM",
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const Text(
-                            "MODÜLLERİ",
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Container(
-                            width: 45,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(10),
-                              color: Colors.amber.withValues(alpha: 0.5),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                onTapGorev: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AksiyanPage()),
+                ),
+                onTapFirma: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const FirmalarPage()),
                 ),
               ),
+              const SizedBox(height: 20),
 
-              const SizedBox(height: 32),
-
-              /* ---------- MODÜLLER BAŞLIĞI ---------- */
+              // ── MODÜLLER BAŞLIĞI ─────────────────────
               Row(
                 children: [
                   Container(
                     width: 3,
-                    height: 16,
+                    height: 15,
                     decoration: BoxDecoration(
                       color: Colors.amber,
                       borderRadius: BorderRadius.circular(2),
@@ -146,70 +125,315 @@ class AnaEkran extends StatelessWidget {
                   const Text(
                     "MODÜLLER",
                     style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white60,
+                      fontSize: 11,
+                      color: Colors.white54,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 2,
                     ),
                   ),
                 ],
               ),
+              const SizedBox(height: 12),
 
-              const SizedBox(height: 14),
-
-              _ModulKart(
-                baslik: "Saha Denetim",
-                aciklama: "Grup ve firma bazlı saha ziyaret takibi",
-                icon: Icons.location_on_outlined,
-                renk: Colors.amber,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => SahaDenetimScreen(),
+              // ── 2 KOLONLU MODÜl GRİDİ ───────────────
+              GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: 1.15,
+                children: [
+                  _ModulKart(
+                    baslik: "Saha Denetim",
+                    aciklama: "Grup & firma ziyaret takibi",
+                    icon: Icons.location_on_outlined,
+                    renk: Colors.amber,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => SahaDenetimScreen()),
                     ),
-                  );
-                },
+                  ),
+                  _ModulKart(
+                    baslik: "Firmalar",
+                    aciklama: "Çalışan, belge & not yönetimi",
+                    icon: Icons.business_outlined,
+                    renk: const Color(0xFF4FC3F7),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const FirmalarPage()),
+                    ),
+                  ),
+                  _ModulKart(
+                    baslik: "Takvim",
+                    aciklama: "Yaklaşan son tarihler",
+                    icon: Icons.calendar_month_outlined,
+                    renk: const Color(0xFF81C784),
+                    badge: _surenDolan > 0 ? '$_surenDolan' : null,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const TakvimPage()),
+                    ),
+                  ),
+                  _ModulKart(
+                    baslik: "Görev Takibi",
+                    aciklama: "Aksiyon ve hatırlatmalar",
+                    icon: Icons.task_alt_outlined,
+                    renk: const Color(0xFFFFB74D),
+                    badge:
+                        _bekleyenGorev > 0 ? '$_bekleyenGorev' : null,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const AksiyanPage()),
+                    ),
+                  ),
+                  _ModulKart(
+                    baslik: "Raporlar",
+                    aciklama: "Denetim özetleri & görseller",
+                    icon: Icons.bar_chart_outlined,
+                    renk: const Color(0xFFCE93D8),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const RaporlarPage()),
+                    ),
+                  ),
+                  _ModulKart(
+                    baslik: "İSG Katip",
+                    aciklama: "Bakanlık sistemi girişi",
+                    icon: Icons.open_in_browser_outlined,
+                    renk: const Color(0xFF80DEEA),
+                    isExternal: true,
+                    onTap: () async {
+                      final uri = Uri.parse(
+                          'https://isgkatip.csgb.gov.tr');
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(uri,
+                            mode: LaunchMode.externalApplication);
+                      }
+                    },
+                  ),
+                ],
               ),
-              const SizedBox(height: 10),
-              _ModulKart(
-                baslik: "Raporlar",
-                aciklama: "Denetim sonuçları ve istatistikler",
-                icon: Icons.bar_chart_outlined,
-                renk: Colors.blueAccent,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const RaporlarPage()),
-                  );
-                },
-              ),
-              const SizedBox(height: 10),
-              _ModulKart(
-                baslik: "Belgeler",
-                aciklama: "İSG dökümanları ve sertifikalar",
-                icon: Icons.folder_outlined,
-                renk: Colors.purpleAccent,
-                onTap: () {},
-                pasif: true,
-              ),
-              const SizedBox(height: 30),
             ],
           ),
         ),
       ),
     );
   }
+
+  AppBar _buildAppBar(BuildContext context) {
+    return AppBar(
+      backgroundColor: const Color(0xFF161B22),
+      elevation: 0,
+      titleSpacing: 4,
+      leading: Builder(
+        builder: (ctx) => IconButton(
+          icon: const Icon(Icons.menu_rounded, color: Colors.white70),
+          onPressed: () => Scaffold.of(ctx).openDrawer(),
+        ),
+      ),
+      title: Row(
+        children: [
+          Image.asset(
+            'assets/logo_sari.png',
+            height: 30,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => const Icon(
+              Icons.shield_outlined,
+              color: Colors.amber,
+              size: 26,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _selamlama(),
+                  style: TextStyle(
+                      color: Colors.grey[500],
+                      fontSize: 11,
+                      fontWeight: FontWeight.normal),
+                ),
+                Text(
+                  _kullaniciAdi.isNotEmpty
+                      ? _kullaniciAdi
+                      : 'PehlivanİSG',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh_outlined,
+              color: Colors.white38, size: 20),
+          onPressed: _loadStats,
+          tooltip: "Yenile",
+        ),
+      ],
+    );
+  }
 }
 
-/* ---------- MODÜL KART WIDGET ---------- */
+// ─────────────────────────────────────────────
+// CANLI İSTATİSTİK KARTI
+// ─────────────────────────────────────────────
+
+class _StatsCard extends StatelessWidget {
+  final int firmaCount;
+  final int surenDolan;
+  final int bekleyenGorev;
+  final VoidCallback onTapFirma;
+  final VoidCallback onTapSuren;
+  final VoidCallback onTapGorev;
+
+  const _StatsCard({
+    required this.firmaCount,
+    required this.surenDolan,
+    required this.bekleyenGorev,
+    required this.onTapFirma,
+    required this.onTapSuren,
+    required this.onTapGorev,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1C2333), Color(0xFF161B22)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+            color: Colors.amber.withValues(alpha: 0.3), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.amber.withValues(alpha: 0.05),
+            blurRadius: 20,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _StatItem(
+              ikon: Icons.business_outlined,
+              renk: const Color(0xFF4FC3F7),
+              deger: '$firmaCount',
+              etiket: 'Firma',
+              onTap: onTapFirma,
+            ),
+          ),
+          _dikey,
+          Expanded(
+            child: _StatItem(
+              ikon: Icons.warning_amber_outlined,
+              renk: surenDolan > 0 ? Colors.orange : Colors.green,
+              deger: '$surenDolan',
+              etiket: '30 gün uyarı',
+              onTap: onTapSuren,
+            ),
+          ),
+          _dikey,
+          Expanded(
+            child: _StatItem(
+              ikon: Icons.task_alt_outlined,
+              renk: bekleyenGorev > 0
+                  ? Colors.amber
+                  : const Color(0xFF81C784),
+              deger: '$bekleyenGorev',
+              etiket: 'Bekleyen görev',
+              onTap: onTapGorev,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget get _dikey => Container(
+        width: 1,
+        height: 44,
+        color: Colors.white.withValues(alpha: 0.08),
+      );
+}
+
+class _StatItem extends StatelessWidget {
+  final IconData ikon;
+  final Color renk;
+  final String deger;
+  final String etiket;
+  final VoidCallback onTap;
+
+  const _StatItem({
+    required this.ikon,
+    required this.renk,
+    required this.deger,
+    required this.etiket,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(ikon, color: renk, size: 20),
+          const SizedBox(height: 4),
+          Text(
+            deger,
+            style: TextStyle(
+              color: renk,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          Text(
+            etiket,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                color: Colors.grey[500], fontSize: 10),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// MODÜl KART (Grid için)
+// ─────────────────────────────────────────────
+
 class _ModulKart extends StatelessWidget {
   final String baslik;
   final String aciklama;
   final IconData icon;
   final Color renk;
   final VoidCallback onTap;
-  final bool pasif;
+  final String? badge;
+  final bool isExternal;
 
   const _ModulKart({
     required this.baslik,
@@ -217,7 +441,8 @@ class _ModulKart extends StatelessWidget {
     required this.icon,
     required this.renk,
     required this.onTap,
-    this.pasif = false,
+    this.badge,
+    this.isExternal = false,
   });
 
   @override
@@ -225,72 +450,77 @@ class _ModulKart extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: const Color(0xFF161B22),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: pasif
-                ? Colors.grey.withValues(alpha:0.12)
-                : renk.withValues(alpha:0.35),
-            width: 1,
-          ),
+              color: renk.withValues(alpha: 0.25), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: renk.withValues(alpha: 0.04),
+              blurRadius: 12,
+              spreadRadius: 1,
+            ),
+          ],
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: renk.withValues(alpha:pasif ? 0.06 : 0.13),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child:
-              Icon(icon, color: pasif ? Colors.grey[600] : renk, size: 26),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: renk.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: renk, size: 22),
+                ),
+                const Spacer(),
+                if (badge != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      badge!,
+                      style: const TextStyle(
+                          color: Colors.red,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                if (isExternal)
+                  Icon(Icons.open_in_new,
+                      color: Colors.grey[700], size: 12),
+                if (badge == null && !isExternal)
+                  Icon(Icons.chevron_right,
+                      color: Colors.grey[800], size: 16),
+              ],
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        baslik,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: pasif ? Colors.grey[600] : Colors.white,
-                        ),
-                      ),
-                      if (pasif) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.withValues(alpha:0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            "Yakında",
-                            style:
-                            TextStyle(fontSize: 10, color: Colors.grey[600]),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    aciklama,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                  ),
-                ],
+            const Spacer(),
+            Text(
+              baslik,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
               ),
             ),
-            Icon(
-              Icons.chevron_right,
-              color: pasif ? Colors.grey[800] : Colors.grey[500],
+            const SizedBox(height: 3),
+            Text(
+              aciklama,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  color: Colors.grey[600], fontSize: 10),
             ),
           ],
         ),

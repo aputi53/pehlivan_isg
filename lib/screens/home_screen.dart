@@ -122,11 +122,11 @@ class _AnaEkranState extends State<AnaEkran> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Text(
+                  Text(
                     "MODÜLLER",
                     style: TextStyle(
                       fontSize: 11,
-                      color: Colors.white54,
+                      color: AppColors.of(context).textMuted,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 2,
                     ),

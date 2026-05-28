@@ -135,8 +135,8 @@ class _AyarlarPageState extends State<AyarlarPage>
               color: AppColors.of(context).accent),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new,
-              size: 18, color: Colors.white54),
+          icon: Icon(Icons.arrow_back_ios_new,
+              size: 18, color: AppColors.of(context).textMuted),
           onPressed: () => Navigator.maybePop(context),
         ),
       ),
@@ -315,8 +315,8 @@ class _AyarlarPageState extends State<AyarlarPage>
         ),
         const SizedBox(width: 10),
         Text(duzgunMetin,
-            style: const TextStyle(
-                color: Colors.white54,
+            style: TextStyle(
+                color: AppColors.of(context).textMuted,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 2.5)),
@@ -355,7 +355,7 @@ class _AyarlarPageState extends State<AyarlarPage>
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon,
-                color: disabled ? Colors.white24 : AppColors.of(context).accent,
+                color: disabled ? AppColors.of(context).textMuted.withValues(alpha: 0.35) : AppColors.of(context).accent,
                 size: 18),
           ),
           const SizedBox(width: 14),
@@ -365,12 +365,12 @@ class _AyarlarPageState extends State<AyarlarPage>
               children: [
                 Text(title,
                     style: TextStyle(
-                        color: disabled ? Colors.white24 : AppColors.of(context).text,
+                        color: disabled ? AppColors.of(context).textMuted.withValues(alpha: 0.5) : AppColors.of(context).text,
                         fontWeight: FontWeight.w600,
                         fontSize: 14)),
                 const SizedBox(height: 2),
                 Text(subtitle,
-                    style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                    style: TextStyle(color: AppColors.of(context).textMuted, fontSize: 12)),
               ],
             ),
           ),
@@ -379,10 +379,10 @@ class _AyarlarPageState extends State<AyarlarPage>
             child: Switch(
               value: value,
               onChanged: onChanged,
-              activeColor: Theme.of(context).colorScheme.primary,
+              activeThumbColor: Theme.of(context).colorScheme.primary,
               activeTrackColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
-              inactiveThumbColor: Colors.white24,
-              inactiveTrackColor: Colors.white10,
+              inactiveThumbColor: AppColors.of(context).textMuted.withValues(alpha: 0.4),
+              inactiveTrackColor: AppColors.of(context).border,
             ),
           ),
         ],
@@ -450,11 +450,11 @@ class _AyarlarPageState extends State<AyarlarPage>
                   ),
                   const SizedBox(height: 2),
                   Text(subtitle,
-                      style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                      style: TextStyle(color: AppColors.of(context).textMuted, fontSize: 12)),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Colors.white24, size: 20),
+            Icon(Icons.chevron_right, color: AppColors.of(context).textMuted.withValues(alpha: 0.5), size: 20),
           ],
         ),
       ),
@@ -473,9 +473,9 @@ class _AyarlarPageState extends State<AyarlarPage>
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: Colors.redAccent.withOpacity(0.08),
+          color: Colors.redAccent.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.redAccent.withOpacity(0.2)),
+          border: Border.all(color: Colors.redAccent.withValues(alpha: 0.2)),
         ),
         child: const Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -538,11 +538,11 @@ class _AyarlarPageState extends State<AyarlarPage>
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(color: Colors.white.withOpacity(0.1))),
+                      side: BorderSide(color: AppColors.of(context).border)),
                 ),
-                child: const Text('İptal',
+                child: Text('İptal',
                     style: TextStyle(
-                        color: Colors.white54, fontWeight: FontWeight.w600)),
+                        color: AppColors.of(context).textMuted, fontWeight: FontWeight.w600)),
               ),
             ),
             const SizedBox(width: 12),
@@ -592,9 +592,9 @@ class _AyarlarPageState extends State<AyarlarPage>
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: AppColors.of(context).accent.withValues(alpha: 0.2)),
               ),
-              child: const Text(
+              child: Text(
                 'Uygulama ile ilgili sorun yaşıyorsanız yukarıdaki kanallardan bize ulaşabilirsiniz.',
-                style: TextStyle(color: Colors.white54, fontSize: 12, height: 1.6),
+                style: TextStyle(color: AppColors.of(context).textMuted, fontSize: 12, height: 1.6),
               ),
             ),
             const SizedBox(height: 12),
@@ -633,10 +633,10 @@ class _AyarlarPageState extends State<AyarlarPage>
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+            Text(label, style: TextStyle(color: AppColors.of(context).textMuted, fontSize: 11)),
             Text(value,
-                style: const TextStyle(
-                    color: Colors.white,
+                style: TextStyle(
+                    color: AppColors.of(context).text,
                     fontSize: 13,
                     fontWeight: FontWeight.w500)),
           ],
@@ -718,7 +718,7 @@ class _AyarlarPageState extends State<AyarlarPage>
   );
 
   Widget _gizlilikMetin(String text) => Text(text,
-      style: const TextStyle(color: Colors.white54, fontSize: 12, height: 1.6));
+      style: TextStyle(color: AppColors.of(context).textMuted, fontSize: 12, height: 1.6));
 
   void _showAbout() {
     showDialog(
@@ -808,10 +808,10 @@ class _AyarlarPageState extends State<AyarlarPage>
                 ),
               ),
               const SizedBox(height: 6),
-              const Text(
+              Text(
                 'İş Sağlığı ve Güvenliği profesyonelleri için geliştirilmiş mobil yönetim platformu.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white54, fontSize: 12, height: 1.5),
+                style: TextStyle(color: AppColors.of(context).textMuted, fontSize: 12, height: 1.5),
               ),
               const SizedBox(height: 14),
               Container(
@@ -821,10 +821,10 @@ class _AyarlarPageState extends State<AyarlarPage>
                   color: AppColors.of(context).border,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Text(
+                child: Text(
                   '© 2026 PehlivanİSG · Tüm hakları saklıdır.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white38, fontSize: 11),
+                  style: TextStyle(color: AppColors.of(context).textMuted, fontSize: 11),
                 ),
               ),
               const SizedBox(height: 16),
@@ -868,7 +868,7 @@ class _AyarlarPageState extends State<AyarlarPage>
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.10),
+                color: iconColor.withValues(alpha: 0.10),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: iconColor, size: 28),
@@ -883,7 +883,7 @@ class _AyarlarPageState extends State<AyarlarPage>
             if (body != null)
               Text(body,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white54, fontSize: 13, height: 1.5)),
+                  style: TextStyle(color: AppColors.of(context).textMuted, fontSize: 13, height: 1.5)),
             if (content != null) ...[
               const SizedBox(height: 10),
               content,
@@ -991,8 +991,8 @@ class _TemaKartiState extends State<_TemaKarti> {
                         isDark
                             ? 'Koyu arka plan, gece dostu'
                             : 'Açık arka plan, gün ışığı',
-                        style: const TextStyle(
-                            color: Colors.white38, fontSize: 12),
+                        style: TextStyle(
+                            color: colors.textMuted, fontSize: 12),
                       ),
                     ],
                   ),
@@ -1003,10 +1003,10 @@ class _TemaKartiState extends State<_TemaKarti> {
                     value: !isDark,
                     onChanged: (v) => themeService.setMode(
                         v ? ThemeMode.light : ThemeMode.dark),
-                    activeColor: Theme.of(context).colorScheme.primary,
+                    activeThumbColor: Theme.of(context).colorScheme.primary,
                     activeTrackColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
-                    inactiveThumbColor: Colors.white24,
-                    inactiveTrackColor: Colors.white10,
+                    inactiveThumbColor: colors.textMuted.withValues(alpha: 0.4),
+                    inactiveTrackColor: colors.border,
                   ),
                 ),
               ],
@@ -1015,7 +1015,7 @@ class _TemaKartiState extends State<_TemaKarti> {
 
           Divider(
               height: 1,
-              color: Colors.white.withValues(alpha: 0.05),
+              color: colors.border,
               indent: 16,
               endIndent: 16),
 
@@ -1026,18 +1026,18 @@ class _TemaKartiState extends State<_TemaKarti> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   "Vurgu Rengi",
                   style: TextStyle(
-                      color: Colors.white,
+                      color: colors.text,
                       fontWeight: FontWeight.w600,
                       fontSize: 14),
                 ),
                 const SizedBox(height: 4),
-                const Text(
+                Text(
                   "Butonlar, ikonlar ve vurgu noktaları",
                   style: TextStyle(
-                      color: Colors.white38, fontSize: 12),
+                      color: colors.textMuted, fontSize: 12),
                 ),
                 const SizedBox(height: 14),
                 Row(

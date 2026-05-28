@@ -233,7 +233,7 @@ class _AnaEkranState extends State<AnaEkran> {
       titleSpacing: 4,
       leading: Builder(
         builder: (ctx) => IconButton(
-          icon: const Icon(Icons.menu_rounded, color: Colors.white70),
+          icon: Icon(Icons.menu_rounded, color: AppColors.of(ctx).text),
           onPressed: () => Scaffold.of(ctx).openDrawer(),
         ),
       ),
@@ -281,8 +281,8 @@ class _AnaEkranState extends State<AnaEkran> {
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.refresh_outlined,
-              color: Colors.white38, size: 20),
+          icon: Icon(Icons.refresh_outlined,
+              color: AppColors.of(context).textMuted, size: 20),
           onPressed: _loadStats,
           tooltip: "Yenile",
         ),

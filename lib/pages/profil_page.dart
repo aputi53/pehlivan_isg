@@ -91,9 +91,7 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0E1A),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0A0E1A),
         elevation: 0,
         centerTitle: true,
         title: const Text(

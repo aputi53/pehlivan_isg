@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:pehlivan_isg/pages/gorsel_rapor_page.dart';
 import 'package:pehlivan_isg/services/database_service.dart';
+import 'package:pehlivan_isg/services/theme_service.dart';
 import 'package:pehlivan_isg/widgets/belgeler_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -75,19 +76,20 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
   void yeniGrupEklePopup() {
     final grupAdController = TextEditingController();
     final DateTime secilenTarih = DateTime.now();
+    final colors = AppColors.of(context);
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF161B22),
-        title: const Text("Yeni Denetim Grubu",
-            style: TextStyle(color: Colors.amber)),
+      builder: (ctx) => AlertDialog(
+        backgroundColor: colors.card,
+        title: Text("Yeni Denetim Grubu",
+            style: TextStyle(color: colors.accent)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: grupAdController,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: colors.text),
               decoration: const InputDecoration(
                   hintText: "Grup Adı",
                   hintStyle: TextStyle(color: Colors.white24)),
@@ -96,7 +98,7 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(ctx),
               child: const Text("İPTAL")),
           ElevatedButton(
             onPressed: () async {
@@ -111,7 +113,7 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
                     "firmalar": [],
                   });
                 });
-                if (context.mounted) Navigator.pop(context);
+                if (ctx.mounted) Navigator.pop(ctx);
               }
             },
             child: const Text("OLUŞTUR"),
@@ -125,22 +127,23 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
     final adController = TextEditingController();
     final telController = TextEditingController();
     final mailController = TextEditingController();
+    final colors = AppColors.of(context);
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF0D1117),
-      builder: (context) => Padding(
+      backgroundColor: colors.bg,
+      builder: (ctx) => Padding(
         padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
             left: 20,
             right: 20,
             top: 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text("Firma Bilgileri",
-                style: TextStyle(fontSize: 18, color: Colors.amber)),
+            Text("Firma Bilgileri",
+                style: TextStyle(fontSize: 18, color: colors.accent)),
             TextField(
                 controller: adController,
                 decoration:
@@ -174,7 +177,7 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
                     "belgeler": <Map<String, dynamic>>[],
                   });
                 });
-                if (context.mounted) Navigator.pop(context);
+                if (ctx.mounted) Navigator.pop(ctx);
               },
               child: const Text("EKLE"),
             ),
@@ -200,18 +203,19 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
   }
 
   Future<void> tarihSec(int g) async {
+    final colors = AppColors.of(context);
     final secilen = await showDatePicker(
       context: context,
       initialDate: gruplar[g]["tarih"] as DateTime,
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
-      builder: (context, child) => Theme(
+      builder: (ctx, child) => Theme(
         data: ThemeData.dark().copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: Colors.amber,
+          colorScheme: ColorScheme.dark(
+            primary: colors.accent,
             onPrimary: Colors.black,
-            surface: Color(0xFF161B22),
-            onSurface: Colors.white,
+            surface: colors.card,
+            onSurface: colors.text,
           ),
         ),
         child: child!,
@@ -226,10 +230,11 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
 
   void _grupSilOnay(int g) {
     final grupAdi = gruplar[g]["grupAdi"] as String;
+    final colors = AppColors.of(context);
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF161B22),
+        backgroundColor: colors.card,
         shape:
         RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text("Grubu Sil"),
@@ -260,7 +265,7 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
                   content: Text("$grupAdi silindi"),
                   action: SnackBarAction(
                     label: "Geri Al",
-                    textColor: Colors.amber,
+                    textColor: colors.accent,
                     onPressed: () async {
                       final newId = await DatabaseService.insertGrup(
                           grupAdi, savedGrupTarih);
@@ -280,7 +285,7 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
                   ),
                   duration: const Duration(seconds: 5),
                   behavior: SnackBarBehavior.floating,
-                  backgroundColor: const Color(0xFF1F2937),
+                  backgroundColor: colors.cardDark,
                   margin: const EdgeInsets.all(16),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10)),
@@ -298,11 +303,12 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
   void grupDuzenlePopup(int g) {
     final grup = gruplar[g];
     final isimController = TextEditingController(text: grup["grupAdi"]);
+    final colors = AppColors.of(context);
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF161B22),
+      backgroundColor: colors.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -376,7 +382,7 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12)),
                     filled: true,
-                    fillColor: const Color(0xFF0D1117),
+                    fillColor: colors.bg,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -387,13 +393,13 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
                       initialDate: gruplar[g]["tarih"] as DateTime,
                       firstDate: DateTime(2020),
                       lastDate: DateTime(2030),
-                      builder: (context, child) => Theme(
+                      builder: (ctx, child) => Theme(
                         data: ThemeData.dark().copyWith(
-                          colorScheme: const ColorScheme.dark(
-                            primary: Colors.amber,
+                          colorScheme: ColorScheme.dark(
+                            primary: colors.accent,
                             onPrimary: Colors.black,
-                            surface: Color(0xFF161B22),
-                            onSurface: Colors.white,
+                            surface: colors.card,
+                            onSurface: colors.text,
                           ),
                         ),
                         child: child!,
@@ -407,14 +413,14 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0D1117),
+                      color: colors.bg,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: Colors.grey[700]!),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.calendar_today,
-                            color: Colors.amber),
+                        Icon(Icons.calendar_today,
+                            color: colors.accent),
                         const SizedBox(width: 12),
                         Text(
                           "${(gruplar[g]["tarih"] as DateTime).day.toString().padLeft(2, '0')}-"
@@ -453,7 +459,7 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
                           if (sheetCtx.mounted) Navigator.pop(sheetCtx);
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.amber,
+                          backgroundColor: colors.accent,
                           foregroundColor: Colors.black,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
@@ -476,11 +482,12 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
     final firma = gruplar[g]["firmalar"][f];
     final firmaIsim = firma["isim"] as String;
     final anaContext = context;
+    final colors = AppColors.of(context);
 
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        backgroundColor: const Color(0xFF161B22),
+        backgroundColor: colors.card,
         shape:
         RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text("Firmayı Sil"),
@@ -522,7 +529,7 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
                   content: Text("$firmaIsim silindi"),
                   action: SnackBarAction(
                     label: "Geri Al",
-                    textColor: Colors.amber,
+                    textColor: colors.accent,
                     onPressed: () async {
                       final newId = await DatabaseService.insertFirmaStandalone(
                         savedFirma["isim"] as String,
@@ -552,7 +559,7 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
                   ),
                   duration: const Duration(seconds: 5),
                   behavior: SnackBarBehavior.floating,
-                  backgroundColor: const Color(0xFF1F2937),
+                  backgroundColor: colors.cardDark,
                   margin: const EdgeInsets.all(16),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10)),
@@ -571,7 +578,7 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF161B22),
+      backgroundColor: AppColors.of(context).card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -587,8 +594,9 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1117),
+      backgroundColor: colors.bg,
       appBar: AppBar(
         title: const Text("Saha Denetim",
             style: TextStyle(fontWeight: FontWeight.bold)),
@@ -598,14 +606,14 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add, color: Colors.amber),
+            icon: Icon(Icons.add, color: colors.accent),
             onPressed: yeniGrupEklePopup,
             tooltip: "Yeni Grup",
           ),
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: Colors.amber))
+          ? Center(child: CircularProgressIndicator(color: colors.accent))
           : gruplar.isEmpty
           ? const Center(
           child: Text("Henüz grup yok",
@@ -622,10 +630,10 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
           return Container(
             margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
-              color: const Color(0xFF161B22),
+              color: colors.card,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                  color: Colors.amber.withValues(alpha:0.2), width: 1),
+                  color: colors.accent.withValues(alpha:0.2), width: 1),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -636,20 +644,20 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 14),
                     decoration: BoxDecoration(
-                      color: Colors.amber.withValues(alpha:0.07),
+                      color: colors.accent.withValues(alpha:0.07),
                       borderRadius: const BorderRadius.vertical(
                           top: Radius.circular(16)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.folder_open,
-                            color: Colors.amber, size: 20),
+                        Icon(Icons.folder_open,
+                            color: colors.accent, size: 20),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             grup["grupAdi"],
-                            style: const TextStyle(
-                              color: Colors.amber,
+                            style: TextStyle(
+                              color: colors.accent,
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
                             ),
@@ -683,7 +691,7 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
                       decoration: BoxDecoration(
                         border: Border(
                           top: BorderSide(
-                              color: Colors.white.withValues(alpha:0.05)),
+                              color: colors.border),
                         ),
                       ),
                       child: Row(
@@ -704,8 +712,8 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
                               children: [
                                 Text(
                                   firma["isim"],
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: colors.text,
                                     fontWeight: FontWeight.w600,
                                     fontSize: 14,
                                   ),
@@ -718,7 +726,7 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
                                       "${notlar.length} not",
                                       style: TextStyle(
                                           fontSize: 11,
-                                          color: Colors.amber
+                                          color: colors.accent
                                               .withValues(alpha:0.7)),
                                     ),
                                   ),
@@ -759,7 +767,7 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
                     decoration: BoxDecoration(
                       border: Border(
                         top: BorderSide(
-                            color: Colors.white.withValues(alpha:0.05)),
+                            color: colors.border),
                       ),
                     ),
                     child: Row(
@@ -853,9 +861,10 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
   }
 
   void _fotoEkleSheet() {
+    final colors = AppColors.of(context);
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1C2333),
+      backgroundColor: colors.cardDark,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (_) => Padding(
@@ -864,8 +873,8 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.camera_alt_outlined,
-                  color: Colors.amber),
+              leading: Icon(Icons.camera_alt_outlined,
+                  color: colors.accent),
               title: const Text("Kamera"),
               onTap: () {
                 Navigator.pop(context);
@@ -873,8 +882,8 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
               },
             ),
             ListTile(
-              leading: const Icon(Icons.photo_library_outlined,
-                  color: Colors.amber),
+              leading: Icon(Icons.photo_library_outlined,
+                  color: colors.accent),
               title: const Text("Galeri"),
               onTap: () {
                 Navigator.pop(context);
@@ -933,6 +942,7 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final durum = firma["durum"] as String? ?? "NORMAL";
 
     return Padding(
@@ -964,8 +974,8 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      const Icon(Icons.business,
-                          color: Colors.amber, size: 20),
+                      Icon(Icons.business,
+                          color: colors.accent, size: 20),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
@@ -983,19 +993,19 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 20),
               decoration: BoxDecoration(
-                color: const Color(0xFF0D1117),
+                color: colors.bg,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: TabBar(
                 controller: _tabController,
                 indicator: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.15),
+                  color: colors.accent.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                  border: Border.all(color: colors.accent.withValues(alpha: 0.4)),
                 ),
                 indicatorSize: TabBarIndicatorSize.tab,
                 dividerColor: Colors.transparent,
-                labelColor: Colors.amber,
+                labelColor: colors.accent,
                 unselectedLabelColor: Colors.grey[500],
                 labelStyle: const TextStyle(
                     fontWeight: FontWeight.w600, fontSize: 13),
@@ -1012,7 +1022,7 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 6, vertical: 1),
                             decoration: BoxDecoration(
-                              color: Colors.amber,
+                              color: colors.accent,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
@@ -1114,22 +1124,22 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 14, vertical: 12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0D1117),
+                          color: colors.bg,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                              color: Colors.white.withValues(alpha:0.07)),
+                              color: colors.border),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.phone_outlined,
-                                color: Colors.amber, size: 18),
+                            Icon(Icons.phone_outlined,
+                                color: colors.accent, size: 18),
                             const SizedBox(width: 12),
                             Expanded(
                               child: editMode
                                   ? TextField(
                                 controller: telCtrl,
-                                style: const TextStyle(
-                                    color: Colors.white,
+                                style: TextStyle(
+                                    color: colors.text,
                                     fontSize: 14),
                                 keyboardType: TextInputType.phone,
                                 decoration: const InputDecoration(
@@ -1143,8 +1153,8 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
                               )
                                   : Text(
                                 firma["telefon"] ?? "-",
-                                style: const TextStyle(
-                                    color: Colors.white,
+                                style: TextStyle(
+                                    color: colors.text,
                                     fontSize: 14),
                               ),
                             ),
@@ -1190,22 +1200,22 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 14, vertical: 12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0D1117),
+                          color: colors.bg,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                              color: Colors.white.withValues(alpha:0.07)),
+                              color: colors.border),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.mail_outline,
-                                color: Colors.amber, size: 18),
+                            Icon(Icons.mail_outline,
+                                color: colors.accent, size: 18),
                             const SizedBox(width: 12),
                             Expanded(
                               child: editMode
                                   ? TextField(
                                 controller: mailCtrl,
-                                style: const TextStyle(
-                                    color: Colors.white,
+                                style: TextStyle(
+                                    color: colors.text,
                                     fontSize: 14),
                                 keyboardType:
                                 TextInputType.emailAddress,
@@ -1220,8 +1230,8 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
                               )
                                   : Text(
                                 firma["mail"] ?? "-",
-                                style: const TextStyle(
-                                    color: Colors.white,
+                                style: TextStyle(
+                                    color: colors.text,
                                     fontSize: 14),
                               ),
                             ),
@@ -1288,12 +1298,12 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
                                 padding: const EdgeInsets.symmetric(
                                     vertical: 14),
                                 decoration: BoxDecoration(
-                                  color: Colors.amber.withValues(alpha: 0.1),
+                                  color: colors.accent.withValues(alpha: 0.1),
                                   borderRadius:
                                   BorderRadius.circular(12),
                                   border: Border.all(
                                       color:
-                                      Colors.amber.withValues(alpha:0.35)),
+                                      colors.accent.withValues(alpha:0.35)),
                                 ),
                                 child: Row(
                                   mainAxisAlignment:
@@ -1303,14 +1313,14 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
                                       editMode
                                           ? Icons.save_outlined
                                           : Icons.edit_outlined,
-                                      color: Colors.amber,
+                                      color: colors.accent,
                                       size: 18,
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
                                       editMode ? "Kaydet" : "Düzenle",
-                                      style: const TextStyle(
-                                        color: Colors.amber,
+                                      style: TextStyle(
+                                        color: colors.accent,
                                         fontWeight: FontWeight.w600,
                                         fontSize: 14,
                                       ),
@@ -1451,20 +1461,21 @@ class _NotKarti extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF0D1117),
+        color: colors.bg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha:0.07)),
+        border: Border.all(color: colors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.access_time, color: Colors.amber, size: 12),
+              Icon(Icons.access_time, color: colors.accent, size: 12),
               const SizedBox(width: 4),
               Text(
                 formatZaman(not.zaman),
@@ -1482,7 +1493,7 @@ class _NotKarti extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               not.metin,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
+              style: TextStyle(color: colors.text, fontSize: 14),
             ),
           ],
           if (not.fotoPaths.isNotEmpty) ...[
@@ -1552,11 +1563,12 @@ class _NotGirisAlani extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1C2333),
+        color: colors.cardDark,
         border: Border(
-            top: BorderSide(color: Colors.white.withValues(alpha:0.08))),
+            top: BorderSide(color: colors.border)),
       ),
       padding: EdgeInsets.only(
         left: 16,
@@ -1618,13 +1630,13 @@ class _NotGirisAlani extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.amber.withValues(alpha: 0.1),
+                    color: colors.accent.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                     border:
-                    Border.all(color: Colors.amber.withValues(alpha:0.3)),
+                    Border.all(color: colors.accent.withValues(alpha:0.3)),
                   ),
-                  child: const Icon(Icons.camera_alt_outlined,
-                      color: Colors.amber, size: 20),
+                  child: Icon(Icons.camera_alt_outlined,
+                      color: colors.accent, size: 20),
                 ),
               ),
               const SizedBox(width: 10),
@@ -1632,16 +1644,16 @@ class _NotGirisAlani extends StatelessWidget {
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0D1117),
+                    color: colors.bg,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                        color: Colors.white.withValues(alpha:0.1)),
+                        color: colors.border),
                   ),
                   child: TextField(
                     controller: ctrl,
                     maxLines: null,
-                    style: const TextStyle(
-                        color: Colors.white, fontSize: 14),
+                    style: TextStyle(
+                        color: colors.text, fontSize: 14),
                     decoration: InputDecoration(
                       hintText: "Saha notu ekle...",
                       hintStyle: TextStyle(
@@ -1660,7 +1672,7 @@ class _NotGirisAlani extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.amber,
+                    color: colors.accent,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.send_rounded,
@@ -1695,6 +1707,7 @@ class _DurumButon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -1704,10 +1717,10 @@ class _DurumButon extends StatelessWidget {
           decoration: BoxDecoration(
             color: secili
                 ? renk.withValues(alpha:0.18)
-                : const Color(0xFF0D1117),
+                : colors.bg,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: secili ? renk : Colors.white.withValues(alpha:0.08),
+              color: secili ? renk : colors.border,
               width: secili ? 1.5 : 1,
             ),
           ),

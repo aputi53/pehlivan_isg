@@ -1216,7 +1216,6 @@ Yalnızca Türkçe yaz. Resmi ve profesyonel bir üslup kullan; yapay zeka dili 
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0D1117),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 18),
@@ -1738,7 +1737,6 @@ class _RaporDetayPageState extends State<RaporDetayPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0D1117),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 18),

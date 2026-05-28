@@ -356,6 +356,8 @@ class _CalisanlarPageState extends State<CalisanlarPage> {
                                 children: [
                                   Text(
                                     c['ad'] as String,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w600,
@@ -805,6 +807,8 @@ class _CalisanDetaySheetState extends State<_CalisanDetaySheet> {
                       children: [
                         Text(
                           belge['baslik'] as String,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w600,

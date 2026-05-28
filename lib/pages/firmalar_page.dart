@@ -459,6 +459,8 @@ class _FirmalarPageState extends State<FirmalarPage> {
                                 ),
                                 title: Text(
                                   f['isim'] as String,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w600,
@@ -472,6 +474,8 @@ class _FirmalarPageState extends State<FirmalarPage> {
                                     if (grupAdi != null)
                                       Text(
                                         grupAdi,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
                                             color: Colors.amber
                                                 .withValues(alpha: 0.75),
@@ -480,6 +484,8 @@ class _FirmalarPageState extends State<FirmalarPage> {
                                     if (telefon.isNotEmpty)
                                       Text(
                                         telefon,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
                                             color: Colors.grey[500],
                                             fontSize: 11),

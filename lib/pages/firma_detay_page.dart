@@ -192,10 +192,13 @@ class _FirmaDetayPageState extends State<FirmaDetayPage>
         ),
         bottom: TabBar(
           controller: _tabCtrl,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
           indicatorColor: Colors.amber,
           labelColor: Colors.amber,
           unselectedLabelColor: Colors.grey,
-          labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          unselectedLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w400),
           tabs: const [
             Tab(text: "Genel"),
             Tab(text: "Çalışanlar"),

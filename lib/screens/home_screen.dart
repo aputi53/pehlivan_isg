@@ -79,16 +79,16 @@ class _AnaEkranState extends State<AnaEkran> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ── LOGO ────────────────────────────────
-              Center(
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Image.asset(
                   'assets/logo.png',
                   width: double.infinity,
-                  height: 80,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => const SizedBox(height: 80),
+                  fit: BoxFit.fitWidth,
+                  errorBuilder: (_, __, ___) => const SizedBox(height: 70),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
 
               // ── CANLI İSTATİSTİK KARTI ──────────────
               _StatsCard(

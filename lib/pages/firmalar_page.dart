@@ -2,9 +2,12 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:pehlivan_isg/pages/firma_detay_page.dart';
 import 'package:pehlivan_isg/services/database_service.dart';
 import 'package:pehlivan_isg/services/theme_service.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class FirmalarPage extends StatefulWidget {
   const FirmalarPage({super.key});
@@ -188,6 +191,170 @@ class _FirmalarPageState extends State<FirmalarPage> {
         ),
       );
     }
+  }
+
+  void _firmaMenu(Map<String, dynamic> f) {
+    final colors = AppColors.of(context);
+    final isim = f['isim'] as String;
+    final telefon = (f['telefon'] as String? ?? '').trim();
+    final mail = (f['mail'] as String? ?? '').trim();
+    final firmaId = f['id'] as int;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: colors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 36, height: 4,
+              decoration: BoxDecoration(
+                color: colors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: colors.accent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(Icons.business, color: colors.accent, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(isim,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color: colors.text,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Divider(color: colors.border, height: 1),
+            if (telefon.isNotEmpty)
+              _menuTile(Icons.phone_outlined, 'Ara', colors.accent, () {
+                Navigator.pop(context);
+                launchUrl(Uri(scheme: 'tel', path: telefon));
+              }),
+            if (mail.isNotEmpty)
+              _menuTile(Icons.email_outlined, 'Mail Gönder', colors.accent, () {
+                Navigator.pop(context);
+                launchUrl(Uri(scheme: 'mailto', path: mail));
+              }),
+            if (telefon.isNotEmpty)
+              _menuTile(Icons.chat_outlined, 'WhatsApp Mesaj', const Color(0xFF25D366), () {
+                Navigator.pop(context);
+                final num = telefon.replaceAll(RegExp(r'[^\d+]'), '');
+                launchUrl(Uri.parse('https://wa.me/$num'),
+                    mode: LaunchMode.externalApplication);
+              }),
+            _menuTile(Icons.attach_file_outlined, 'Belge Gönder', colors.accent, () async {
+              Navigator.pop(context);
+              final r = await FilePicker.platform.pickFiles(allowMultiple: false);
+              if (r != null && r.files.first.path != null) {
+                await Share.shareXFiles([XFile(r.files.first.path!)]);
+              }
+            }),
+            if (telefon.isNotEmpty)
+              _menuTile(Icons.copy_outlined, 'Telefonu Kopyala', colors.textMuted, () {
+                Navigator.pop(context);
+                Clipboard.setData(ClipboardData(text: telefon));
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text('$telefon kopyalandı'),
+                  behavior: SnackBarBehavior.floating,
+                  duration: const Duration(seconds: 2),
+                  margin: const EdgeInsets.fromLTRB(16, 0, 16, 72),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  backgroundColor: colors.card,
+                ));
+              }),
+            Divider(color: colors.border, height: 1),
+            _menuTile(Icons.delete_outline, 'Sil', Colors.redAccent, () async {
+              Navigator.pop(context);
+              final onay = await showDialog<bool>(
+                context: context,
+                builder: (_) => AlertDialog(
+                  backgroundColor: colors.card,
+                  title: Text('Firmayı Sil', style: TextStyle(color: colors.text)),
+                  content: Text('$isim silinecek. Devam edilsin mi?',
+                      style: TextStyle(color: colors.textMuted)),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: Text('İptal', style: TextStyle(color: colors.textMuted))),
+                    TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text('Sil', style: TextStyle(color: Colors.redAccent))),
+                  ],
+                ),
+              );
+              if (onay != true) return;
+
+              final grupId = f['grupId'] as int?;
+              final savedTelefon = (f['telefon'] as String? ?? '');
+              final savedMail = (f['mail'] as String? ?? '');
+
+              await DatabaseService.deleteFirma(firmaId);
+              await _loadData();
+
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).clearSnackBars();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('$isim silindi'),
+                  behavior: SnackBarBehavior.floating,
+                  duration: const Duration(seconds: 5),
+                  margin: const EdgeInsets.fromLTRB(16, 0, 16, 72),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  backgroundColor: colors.cardDark,
+                  action: SnackBarAction(
+                    label: 'Geri Al',
+                    textColor: colors.accent,
+                    onPressed: () async {
+                      if (grupId != null) {
+                        await DatabaseService.insertFirma(
+                            grupId, isim, savedTelefon, savedMail);
+                      } else {
+                        await DatabaseService.insertFirmaStandalone(
+                            isim, savedTelefon, savedMail);
+                      }
+                      await _loadData();
+                    },
+                  ),
+                ),
+              );
+            }),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _menuTile(IconData icon, String label, Color color, VoidCallback onTap) {
+    final colors = AppColors.of(context);
+    return ListTile(
+      leading: Icon(icon, color: color, size: 20),
+      title: Text(label, style: TextStyle(color: colors.text, fontSize: 14)),
+      onTap: onTap,
+      dense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+    );
   }
 
   Future<void> _csvImport() async {
@@ -445,6 +612,7 @@ class _FirmalarPageState extends State<FirmalarPage> {
                                   );
                                   _loadData();
                                 },
+                                onLongPress: () => _firmaMenu(f),
                                 contentPadding:
                                     const EdgeInsets.symmetric(
                                         horizontal: 14, vertical: 4),
@@ -495,25 +663,35 @@ class _FirmalarPageState extends State<FirmalarPage> {
                                       ),
                                   ],
                                 ),
-                                trailing: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: _durumRenk(durum)
-                                        .withValues(alpha: 0.12),
-                                    borderRadius:
-                                        BorderRadius.circular(8),
-                                    border: Border.all(
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
                                         color: _durumRenk(durum)
-                                            .withValues(alpha: 0.4)),
-                                  ),
-                                  child: Text(
-                                    _durumLabel(durum),
-                                    style: TextStyle(
-                                        color: _durumRenk(durum),
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w600),
-                                  ),
+                                            .withValues(alpha: 0.12),
+                                        borderRadius:
+                                            BorderRadius.circular(8),
+                                        border: Border.all(
+                                            color: _durumRenk(durum)
+                                                .withValues(alpha: 0.4)),
+                                      ),
+                                      child: Text(
+                                        _durumLabel(durum),
+                                        style: TextStyle(
+                                            color: _durumRenk(durum),
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Icon(Icons.more_vert,
+                                        color: colors.textMuted
+                                            .withValues(alpha: 0.4),
+                                        size: 16),
+                                  ],
                                 ),
                               ),
                             );

@@ -10,6 +10,13 @@ class DatabaseService {
     return _db!;
   }
 
+  static Future<void> closeDb() async {
+    if (_db != null) {
+      await _db!.close();
+      _db = null;
+    }
+  }
+
   static Future<Database> _init() async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'pehlivan_isg.db');

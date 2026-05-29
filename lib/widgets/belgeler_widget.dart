@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:pehlivan_isg/utils/platform_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:open_filex/open_filex.dart';
@@ -399,34 +400,36 @@ class _BelgelerWidgetState extends State<BelgelerWidget> {
                         },
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _kaynakButon(
-                        icon: Icons.camera_alt_outlined,
-                        label: "Kamera",
-                        color: Colors.amber,
-                        onTap: () async {
-                          final img = await _picker.pickImage(
-                              source: ImageSource.camera,
-                              imageQuality: 85);
-                          if (img != null) {
-                            await DatabaseService.insertBelge(
-                              firmaId: widget.firmaId,
-                              baslik: baslikCtrl.text.isEmpty
-                                  ? secilenTur ?? "Belge"
-                                  : baslikCtrl.text,
-                              dosyaYolu: img.path,
-                              tur: secilenTur ?? 'Diğer',
-                              gecerlilikTarihi:
-                                  gecerlilikTarihi,
-                              calisanId: secilenCalisanId,
-                            );
-                            await _loadData();
-                            if (ctx.mounted) Navigator.pop(ctx);
-                          }
-                        },
+                    if (hasCameraSupport) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _kaynakButon(
+                          icon: Icons.camera_alt_outlined,
+                          label: "Kamera",
+                          color: Colors.amber,
+                          onTap: () async {
+                            final img = await _picker.pickImage(
+                                source: ImageSource.camera,
+                                imageQuality: 85);
+                            if (img != null) {
+                              await DatabaseService.insertBelge(
+                                firmaId: widget.firmaId,
+                                baslik: baslikCtrl.text.isEmpty
+                                    ? secilenTur ?? "Belge"
+                                    : baslikCtrl.text,
+                                dosyaYolu: img.path,
+                                tur: secilenTur ?? 'Diğer',
+                                gecerlilikTarihi:
+                                    gecerlilikTarihi,
+                                calisanId: secilenCalisanId,
+                              );
+                              await _loadData();
+                              if (ctx.mounted) Navigator.pop(ctx);
+                            }
+                          },
+                        ),
                       ),
-                    ),
+                    ],
                     const SizedBox(width: 8),
                     Expanded(
                       child: _kaynakButon(

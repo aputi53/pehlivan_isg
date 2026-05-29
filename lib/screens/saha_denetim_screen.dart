@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:pehlivan_isg/pages/gorsel_rapor_page.dart';
+import 'package:pehlivan_isg/utils/platform_utils.dart';
 import 'package:pehlivan_isg/services/database_service.dart';
 import 'package:pehlivan_isg/services/theme_service.dart';
 import 'package:pehlivan_isg/widgets/belgeler_widget.dart';
@@ -872,15 +873,16 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: Icon(Icons.camera_alt_outlined,
-                  color: colors.accent),
-              title: const Text("Kamera"),
-              onTap: () {
-                Navigator.pop(context);
-                _fotoSec(ImageSource.camera);
-              },
-            ),
+            if (hasCameraSupport)
+              ListTile(
+                leading: Icon(Icons.camera_alt_outlined,
+                    color: colors.accent),
+                title: const Text("Kamera"),
+                onTap: () {
+                  Navigator.pop(context);
+                  _fotoSec(ImageSource.camera);
+                },
+              ),
             ListTile(
               leading: Icon(Icons.photo_library_outlined,
                   color: colors.accent),

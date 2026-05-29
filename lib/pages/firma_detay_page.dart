@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:pehlivan_isg/utils/platform_utils.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:pehlivan_isg/pages/calisanlar_page.dart';
@@ -851,22 +852,23 @@ class _NotlarTab extends StatelessWidget {
                     ),
                   ),
                 ),
-              Row(
-                children: [
-                  TextButton.icon(
-                    onPressed: () async {
-                      final img = await picker.pickImage(
-                          source: ImageSource.camera);
-                      if (img != null) {
-                        setM(() => fotoPaths.add(img.path));
-                      }
-                    },
-                    icon: const Icon(Icons.camera_alt_outlined,
-                        size: 16),
-                    label: const Text("Fotoğraf"),
-                  ),
-                ],
-              ),
+              if (hasCameraSupport)
+                Row(
+                  children: [
+                    TextButton.icon(
+                      onPressed: () async {
+                        final img = await picker.pickImage(
+                            source: ImageSource.camera);
+                        if (img != null) {
+                          setM(() => fotoPaths.add(img.path));
+                        }
+                      },
+                      icon: const Icon(Icons.camera_alt_outlined,
+                          size: 16),
+                      label: const Text("Fotoğraf"),
+                    ),
+                  ],
+                ),
               const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,

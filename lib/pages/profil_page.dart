@@ -1,5 +1,6 @@
 import 'dart:convert'; // KURAL 1: Base64 kod çözümü için eklendi
 import 'dart:io';
+import 'package:pehlivan_isg/utils/platform_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // Hafıza kaydı için eklendi
@@ -531,14 +532,19 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
             const Text("Fotoğraf Seç",
                 style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16)),
             const SizedBox(height: 16),
+            if (hasCameraSupport)
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined,
+                    color: Color(0xFFE8B84B)),
+                title: const Text("Kamera",
+                    style: TextStyle(color: Colors.white)),
+                onTap: () => Navigator.pop(context, ImageSource.camera),
+              ),
             ListTile(
-              leading: const Icon(Icons.camera_alt_outlined, color: Color(0xFFE8B84B)),
-              title: const Text("Kamera", style: TextStyle(color: Colors.white)),
-              onTap: () => Navigator.pop(context, ImageSource.camera),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined, color: Color(0xFFE8B84B)),
-              title: const Text("Galeri", style: TextStyle(color: Colors.white)),
+              leading: const Icon(Icons.photo_library_outlined,
+                  color: Color(0xFFE8B84B)),
+              title: const Text("Galeri",
+                  style: TextStyle(color: Colors.white)),
               onTap: () => Navigator.pop(context, ImageSource.gallery),
             ),
             const SizedBox(height: 16),

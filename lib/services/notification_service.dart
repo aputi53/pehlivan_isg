@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:pehlivan_isg/services/database_service.dart';
 
@@ -8,6 +11,10 @@ class NotificationService {
 
   static Future<void> initialize() async {
     if (_initialized) return;
+    if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+      _initialized = true;
+      return;
+    }
 
     const androidSettings =
         AndroidInitializationSettings('@mipmap/launcher_icon');

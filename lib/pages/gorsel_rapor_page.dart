@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:pehlivan_isg/utils/platform_utils.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -1284,11 +1285,13 @@ Yalnızca Türkçe yaz. Resmi ve profesyonel bir üslup kullan; yapay zeka dili 
 
                   Row(
                     children: [
-                      _FotoButon(
-                          icon: Icons.camera_alt_outlined,
-                          label: 'Kamera',
-                          onTap: _kamera),
-                      const SizedBox(width: 8),
+                      if (hasCameraSupport) ...[
+                        _FotoButon(
+                            icon: Icons.camera_alt_outlined,
+                            label: 'Kamera',
+                            onTap: _kamera),
+                        const SizedBox(width: 8),
+                      ],
                       _FotoButon(
                           icon: Icons.photo_library_outlined,
                           label: 'Galeri',

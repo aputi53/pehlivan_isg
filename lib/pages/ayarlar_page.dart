@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../services/backup_service.dart';
 import '../services/biometric_service.dart';
 import '../services/theme_service.dart';
 import '../screens/security/change_pin_screen.dart';
@@ -241,6 +242,27 @@ class _AyarlarPageState extends State<AyarlarPage>
               _sectionLabel('Tema', Icons.palette_outlined),
               const SizedBox(height: 10),
               _TemaKarti(),
+
+              const SizedBox(height: 22),
+
+              // ── VERİ YÖNETİMİ ────────────────────────────────────────────
+              _sectionLabel('Veri Yönetimi', Icons.storage_outlined),
+              const SizedBox(height: 10),
+              _settingsCard([
+                _navTile(
+                  icon: Icons.backup_outlined,
+                  title: 'Veri Yedekle',
+                  subtitle: 'Tüm verileri .db dosyası olarak dışa aktar',
+                  onTap: _veriYedekle,
+                ),
+                _divider(),
+                _navTile(
+                  icon: Icons.restore_outlined,
+                  title: 'Yedekten Geri Yükle',
+                  subtitle: 'Daha önce alınan yedeği içe aktar',
+                  onTap: _veriGeriYukle,
+                ),
+              ]),
 
               const SizedBox(height: 22),
 
@@ -511,6 +533,96 @@ class _AyarlarPageState extends State<AyarlarPage>
         ],
       ),
     );
+  }
+
+  Future<void> _veriYedekle() async {
+    try {
+      final ok = await BackupService.backup();
+      if (!mounted) return;
+      if (ok) {
+        ScaffoldMessenger.of(context).showSnackBar(_snack(
+          'Yedek başarıyla oluşturuldu',
+          Icons.check_circle_outline,
+          Colors.green,
+        ));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(_snack(
+        'Yedekleme başarısız: $e',
+        Icons.error_outline,
+        Colors.redAccent,
+      ));
+    }
+  }
+
+  Future<void> _veriGeriYukle() async {
+    final onay = await showDialog<bool>(
+      context: context,
+      builder: (_) => _dialog(
+        icon: Icons.restore_outlined,
+        iconColor: Colors.orange,
+        title: 'Geri Yükleme',
+        body:
+            'Mevcut tüm veriler seçtiğiniz yedekle değiştirilecek. Devam etmek istiyor musunuz?',
+        actions: Row(
+          children: [
+            Expanded(
+              child: TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: AppColors.of(context).border)),
+                ),
+                child: Text('İptal',
+                    style: TextStyle(
+                        color: AppColors.of(context).textMuted,
+                        fontWeight: FontWeight.w600)),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                child: const Text('Devam Et',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (onay != true) return;
+
+    try {
+      final ok = await BackupService.restore();
+      if (!mounted) return;
+      if (ok) {
+        ScaffoldMessenger.of(context).showSnackBar(_snack(
+          'Geri yükleme tamamlandı. Uygulamayı yeniden başlatın.',
+          Icons.check_circle_outline,
+          Colors.green,
+        ));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(_snack(
+        'Geri yükleme başarısız: $e',
+        Icons.error_outline,
+        Colors.redAccent,
+      ));
+    }
   }
 
   void _showComingSoon(String feature) {

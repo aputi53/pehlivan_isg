@@ -20,6 +20,7 @@ class SahaDenetimScreen extends StatefulWidget {
 }
 
 class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
+  final _messengerKey = GlobalKey<ScaffoldMessengerState>();
   List<Map<String, dynamic>> gruplar = [];
   bool _loading = true;
 
@@ -257,11 +258,14 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
 
               await DatabaseService.deleteGrup(grupId);
               setState(() => gruplar.removeAt(g));
-              if (context.mounted) Navigator.pop(context);
+              if (context.mounted) {
+                Navigator.pop(context); // dialog kapat
+                Navigator.pop(context); // bottomsheet kapat
+              }
 
               if (!mounted) return;
-              ScaffoldMessenger.of(context).clearSnackBars();
-              ScaffoldMessenger.of(context).showSnackBar(
+              _messengerKey.currentState?.clearSnackBars();
+              _messengerKey.currentState?.showSnackBar(
                 SnackBar(
                   content: Text("$grupAdi silindi"),
                   action: SnackBarAction(
@@ -596,7 +600,9 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
-    return Scaffold(
+    return ScaffoldMessenger(
+      key: _messengerKey,
+      child: Scaffold(
       backgroundColor: colors.bg,
       appBar: AppBar(
         title: const Text("Saha Denetim",
@@ -791,7 +797,8 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
           );
         },
       ),
-    );
+    ),   // Scaffold
+    );   // ScaffoldMessenger
   }
 }
 

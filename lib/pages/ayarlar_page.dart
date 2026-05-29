@@ -520,16 +520,27 @@ class _AyarlarPageState extends State<AyarlarPage>
   // DIALOGLAR
   // ─────────────────────────────────────────────────────────────────────────
 
-  SnackBar _snack(String msg, IconData icon, Color color) {
+  SnackBar _snack(String msg, IconData icon, Color color, {String? subtitle}) {
     return SnackBar(
       backgroundColor: AppColors.of(context).card,
       behavior: SnackBarBehavior.floating,
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 72),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       content: Row(
         children: [
           Icon(icon, color: color, size: 18),
           const SizedBox(width: 10),
-          Text(msg, style: TextStyle(color: AppColors.of(context).text, fontSize: 13)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(msg, style: TextStyle(color: AppColors.of(context).text, fontSize: 13)),
+                if (subtitle != null)
+                  Text(subtitle, style: TextStyle(color: AppColors.of(context).textMuted, fontSize: 11)),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -537,13 +548,15 @@ class _AyarlarPageState extends State<AyarlarPage>
 
   Future<void> _veriYedekle() async {
     try {
-      final ok = await BackupService.backup();
+      final path = await BackupService.backup();
       if (!mounted) return;
-      if (ok) {
+      if (path != null) {
+        final fileName = path.split('/').last.split('\\').last;
         ScaffoldMessenger.of(context).showSnackBar(_snack(
-          'Yedek başarıyla oluşturuldu',
-          Icons.check_circle_outline,
+          fileName,
+          Icons.check_circle_outline_rounded,
           Colors.green,
+          subtitle: 'Downloads klasörüne kaydedildi',
         ));
       }
     } catch (e) {

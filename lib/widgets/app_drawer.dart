@@ -207,7 +207,7 @@ class _AppDrawerState extends State<AppDrawer> {
     final colors = AppColors.of(context);
     final itemColor = disabled
         ? Colors.grey[700]!
-        : (color ?? (highlight ? colors.accent : Colors.white70));
+        : (color ?? colors.accent);
 
     return ListTile(
       leading: Icon(icon, color: itemColor, size: 22),

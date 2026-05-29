@@ -4,7 +4,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:sqflite/sqflite.dart';
 
 import 'database_service.dart';
@@ -23,13 +22,13 @@ class BackupService {
     return 'pehlivan_yedek_$y$m$d.db';
   }
 
-  /// Veritabanını dışa aktar.
-  /// Windows/Linux/macOS: "Farklı Kaydet" dialogu açar.
-  /// Android/iOS: Paylaşım seçenekleri sunar.
-  /// Başarılıysa true döner.
-  static Future<bool> backup() async {
+  /// Yedeği kaydeder.
+  /// Masaüstünde "Farklı Kaydet" dialogu açar.
+  /// Mobilde Downloads klasörüne kaydeder, kaydedilen yolu döner.
+  /// Başarılıysa (kaydedilen yol, null) döner; hata olursa exception fırlatır.
+  static Future<String?> backup() async {
     final src = await _dbPath();
-    if (!File(src).existsSync()) return false;
+    if (!File(src).existsSync()) throw Exception('Veritabanı bulunamadı');
 
     final fname = _backupFileName();
 
@@ -38,18 +37,18 @@ class BackupService {
         dialogTitle: 'Yedeği Kaydet',
         fileName: fname,
       );
-      if (savePath == null) return false;
+      if (savePath == null) return null; // kullanıcı iptal etti
       await File(src).copy(savePath);
-      return true;
+      return savePath;
     } else {
-      final temp = await getTemporaryDirectory();
-      final dest = p.join(temp.path, fname);
+      // Android/iOS: Downloads klasörüne kaydet
+      final dir = await getExternalStorageDirectory();
+      final downloadsPath = dir != null
+          ? p.join(dir.path.split('Android').first, 'Download')
+          : (await getApplicationDocumentsDirectory()).path;
+      final dest = p.join(downloadsPath, fname);
       await File(src).copy(dest);
-      await Share.shareXFiles(
-        [XFile(dest)],
-        subject: 'PehlivanİSG Veritabanı Yedeği',
-      );
-      return true;
+      return dest;
     }
   }
 

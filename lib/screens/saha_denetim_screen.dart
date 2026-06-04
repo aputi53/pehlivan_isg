@@ -140,13 +140,16 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
     final telCtrl = TextEditingController();
     final mailCtrl = TextEditingController();
 
+    // Seçimi sheet dışına taşımak için: sheet kapatıldıktan sonra işlenecek
+    int? secilenFirmaId;
+
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: colors.bg,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => StatefulBuilder(builder: (ctx, setM) {
+      builder: (sheetCtx) => StatefulBuilder(builder: (sbCtx, setM) {
         final filtered = allFirmalar.where((f) {
           if (arama.isEmpty) return true;
           final q = arama.toLowerCase();
@@ -284,8 +287,8 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
                             onTap: isThisGroup
                                 ? null
                                 : () async {
-                                    final firmaId = f['id'] as int;
-
+                                    // Başka gruptaysa onay al (dialog sheet
+                                    // kapanmadan önce gösterilir — sorun yok)
                                     if (isOtherGroup) {
                                       final eskiGrupAdi =
                                           firmaGrupAdi ?? 'başka bir grup';
@@ -326,10 +329,12 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
                                       if (onay != true) return;
                                     }
 
-                                    await DatabaseService.assignFirmaToGrup(
-                                        firmaId, targetGrupId);
-                                    if (ctx.mounted) Navigator.pop(ctx);
-                                    if (mounted) await _loadData();
+                                    // Seçimi kaydet; DB işlemi sheet
+                                    // tamamen kapandıktan sonra yapılacak
+                                    secilenFirmaId = f['id'] as int;
+                                    if (sheetCtx.mounted) {
+                                      Navigator.pop(sheetCtx);
+                                    }
                                   },
                           );
                         },
@@ -340,7 +345,7 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
                 child: SingleChildScrollView(
                   padding: EdgeInsets.only(
                     left: 20, right: 20, top: 4,
-                    bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+                    bottom: MediaQuery.of(sbCtx).viewInsets.bottom + 20,
                   ),
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
                     TextField(
@@ -386,7 +391,7 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
                               "belgeler": <Map<String, dynamic>>[],
                             });
                           });
-                          if (ctx.mounted) Navigator.pop(ctx);
+                          if (sheetCtx.mounted) Navigator.pop(sheetCtx);
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: colors.accent,
@@ -410,10 +415,17 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
       }),
     );
 
+    // await showModalBottomSheet döndü → sheet ağaçtan tamamen çıktı
+    // Şimdi DB işlemi ve setState güvenli
     aramaCtrl.dispose();
     adCtrl.dispose();
     telCtrl.dispose();
     mailCtrl.dispose();
+
+    if (secilenFirmaId != null && mounted) {
+      await DatabaseService.assignFirmaToGrup(secilenFirmaId!, targetGrupId);
+      await _loadData();
+    }
   }
 
   Color durumRenk(String d) {

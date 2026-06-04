@@ -328,8 +328,8 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
 
                                     await DatabaseService.assignFirmaToGrup(
                                         firmaId, targetGrupId);
-                                    await _loadData();
                                     if (ctx.mounted) Navigator.pop(ctx);
+                                    if (mounted) await _loadData();
                                   },
                           );
                         },

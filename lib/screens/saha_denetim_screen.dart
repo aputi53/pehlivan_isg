@@ -451,6 +451,8 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
   void _silOnay(int g, int f) {
     final firma = gruplar[g]["firmalar"][f];
     final firmaIsim = firma["isim"] as String;
+    final firmaId = firma["id"] as int;
+    final grupId = gruplar[g]["id"] as int;
     final anaContext = context;
     final colors = AppColors.of(context);
 
@@ -459,31 +461,21 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
       builder: (dialogCtx) => AlertDialog(
         backgroundColor: colors.card,
         shape:
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text("Firmayı Sil"),
-        content: Text("$firmaIsim silinsin mi? Notlar, raporlar ve belgeler de silinir."),
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text("Gruptan Çıkar"),
+        content: Text(
+            "$firmaIsim bu gruptan çıkarılacak.\nFirma ve tüm verileri (notlar, raporlar, belgeler) korunur."),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text("Hayır"),
+            child: const Text("İptal"),
           ),
           ElevatedButton(
             onPressed: () async {
-              final firmaId = firma["id"] as int;
-              final grupId = firma["grupId"] as int?;
-              final savedFirma = Map<String, dynamic>.from(firma);
-              final savedNotlar = List<Map<String, dynamic>>.from(
-                  (firma["notlar"] as List).map((n) => n is FirmaNot
-                      ? {"metin": n.metin, "zaman": n.zaman, "fotoPaths": n.fotoPaths}
-                      : Map<String, dynamic>.from(n as Map)));
-              final savedRaporlar = List<GorselRapor>.from(
-                  (firma["raporlar"] as List).cast<GorselRapor>());
-              final savedBelgeler = List<Map<String, dynamic>>.from(
-                  (firma["belgeler"] as List).cast<Map<String, dynamic>>());
               final grupIndex = g;
               final firmaIndex = f;
 
-              await DatabaseService.deleteFirma(firmaId);
+              await DatabaseService.assignFirmaToGrup(firmaId, null);
 
               if (dialogCtx.mounted) Navigator.pop(dialogCtx);
               if (anaContext.mounted) Navigator.pop(anaContext);
@@ -496,34 +488,12 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
               ScaffoldMessenger.of(anaContext).clearSnackBars();
               ScaffoldMessenger.of(anaContext).showSnackBar(
                 SnackBar(
-                  content: Text("$firmaIsim silindi"),
+                  content: Text("$firmaIsim gruptan çıkarıldı"),
                   action: SnackBarAction(
                     label: "Geri Al",
                     textColor: colors.accent,
                     onPressed: () async {
-                      final newId = await DatabaseService.insertFirmaStandalone(
-                        savedFirma["isim"] as String,
-                        savedFirma["telefon"] as String? ?? '',
-                        savedFirma["mail"] as String? ?? '',
-                      );
-                      if (grupId != null) {
-                        await DatabaseService.assignFirmaToGrup(newId, grupId);
-                      }
-                      for (final n in savedNotlar) {
-                        await DatabaseService.insertNot(newId, n["metin"] as String,
-                            n["zaman"] as DateTime, List<String>.from(n["fotoPaths"] as List));
-                      }
-                      for (final r in savedRaporlar) {
-                        await DatabaseService.insertGorselRapor(
-                            id: r.id, firmaId: newId, baslik: r.baslik,
-                            rapor: r.rapor, tarih: r.tarih, fotoPaths: r.fotoPaths);
-                      }
-                      for (final b in savedBelgeler) {
-                        await DatabaseService.insertBelge(
-                            firmaId: newId, baslik: b["baslik"] as String,
-                            dosyaYolu: b["dosyaYolu"] as String, tur: b["tur"] as String,
-                            gecerlilikTarihi: b["gecerlilikTarihi"] as DateTime?);
-                      }
+                      await DatabaseService.assignFirmaToGrup(firmaId, grupId);
                       await _loadData();
                     },
                   ),
@@ -536,8 +506,9 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
                 ),
               );
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text("Evet, Sil"),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange.shade700),
+            child: const Text("Çıkar"),
           ),
         ],
       ),
@@ -1323,13 +1294,13 @@ class _FirmaPopupSheetState extends State<_FirmaPopupSheet>
                                   mainAxisAlignment:
                                   MainAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.delete_outline,
-                                        color: Colors.red, size: 18),
+                                    Icon(Icons.link_off,
+                                        color: Colors.orange, size: 18),
                                     SizedBox(width: 6),
                                     Text(
-                                      "Firmayı Sil",
+                                      "Gruptan Çıkar",
                                       style: TextStyle(
-                                        color: Colors.red,
+                                        color: Colors.orange,
                                         fontWeight: FontWeight.w600,
                                         fontSize: 14,
                                       ),

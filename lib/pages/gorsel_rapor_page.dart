@@ -1051,6 +1051,7 @@ class _RaporOlusturPageState extends State<RaporOlusturPage>
   final List<String> _photos = [];
   final TextEditingController _baslik = TextEditingController();
   final TextEditingController _rapor = TextEditingController();
+  final TextEditingController _ozelPrompt = TextEditingController();
   bool _loading = false;
   String _loadingText = 'Analiz ediliyor...';
 
@@ -1075,6 +1076,7 @@ class _RaporOlusturPageState extends State<RaporOlusturPage>
     _pulseCtrl.dispose();
     _baslik.dispose();
     _rapor.dispose();
+    _ozelPrompt.dispose();
     super.dispose();
   }
 
@@ -1149,8 +1151,12 @@ Yalnızca Türkçe yaz. Resmi ve profesyonel bir üslup kullan; yapay zeka dili 
 
       setState(() => _loadingText = 'Yapay zeka analiz yapıyor...');
 
+      final customText = _ozelPrompt.text.trim();
+      final fullPrompt = customText.isEmpty
+          ? _prompt
+          : '$_prompt\n\nKullanıcının ek talimatı:\n$customText';
       final response = await model.generateContent([
-        Content.multi([TextPart(_prompt), ...images])
+        Content.multi([TextPart(fullPrompt), ...images])
       ]);
 
       final raporMetni = response.text ?? '';
@@ -1363,7 +1369,34 @@ Yalnızca Türkçe yaz. Resmi ve profesyonel bir üslup kullan; yapay zeka dili 
                     ),
                   ],
 
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
+                  _BolumBasligi(
+                      icon: Icons.tune_outlined,
+                      baslik: 'ÖZEL TALİMAT (OPSİYONEL)'),
+                  const SizedBox(height: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF161B22),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.07)),
+                    ),
+                    child: TextField(
+                      controller: _ozelPrompt,
+                      maxLines: 3,
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 13, height: 1.5),
+                      decoration: InputDecoration(
+                        hintText:
+                            'Ör: KKD eksiklerine odaklan · 5. maddeye göre analiz et · Belirli bir şablon kullan...',
+                        hintStyle:
+                            TextStyle(color: Colors.grey[600], fontSize: 12),
+                        contentPadding: const EdgeInsets.all(14),
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
 
                   if (_loading)
                     _LoadingKart(text: _loadingText)

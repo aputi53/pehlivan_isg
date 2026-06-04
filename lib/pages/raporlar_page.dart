@@ -291,15 +291,41 @@ class _TamamlanmaBar extends StatelessWidget {
 }
 
 /// ─── GÖRSEL RAPORLAR LİSTESİ ────────────────────────────────────────────────
-class _GorselRaporlarTab extends StatelessWidget {
+class _GorselRaporlarTab extends StatefulWidget {
   final List<Map<String, dynamic>> raporlar;
 
   const _GorselRaporlarTab({required this.raporlar});
 
   @override
+  State<_GorselRaporlarTab> createState() => _GorselRaporlarTabState();
+}
+
+class _GorselRaporlarTabState extends State<_GorselRaporlarTab> {
+  final _aramaCtrl = TextEditingController();
+  String _arama = '';
+
+  @override
+  void dispose() {
+    _aramaCtrl.dispose();
+    super.dispose();
+  }
+
+  List<Map<String, dynamic>> get _filtered {
+    if (_arama.isEmpty) return widget.raporlar;
+    final q = _arama.toLowerCase();
+    return widget.raporlar.where((r) {
+      final baslik = (r['baslik'] as String).toLowerCase();
+      final firma = (r['firmaIsim'] as String).toLowerCase();
+      return baslik.contains(q) || firma.contains(q);
+    }).toList();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
-    if (raporlar.isEmpty) {
+    final filtered = _filtered;
+
+    if (widget.raporlar.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -314,79 +340,115 @@ class _GorselRaporlarTab extends StatelessWidget {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: raporlar.length,
-      itemBuilder: (_, i) {
-        final r = raporlar[i];
-        final tarih = r['tarih'] as DateTime;
-        return GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => RaporDetayPage(
-                  rapor: GorselRapor(
-                    id: r['id'] as String,
-                    tarih: tarih,
-                    fotoPaths: List<String>.from(r['fotoPaths']),
-                    baslik: r['baslik'] as String,
-                    rapor: r['rapor'] as String,
-                  ),
-                ),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+          child: TextField(
+            controller: _aramaCtrl,
+            onChanged: (v) => setState(() => _arama = v),
+            decoration: InputDecoration(
+              hintText: 'Rapor başlığı veya firma adı ara...',
+              prefixIcon: Icon(Icons.search, color: c.accent, size: 20),
+              filled: true,
+              fillColor: c.card,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
               ),
-            );
-          },
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: c.card,
-              borderRadius: BorderRadius.circular(12),
-              border:
-                  Border.all(color: c.accent.withValues(alpha: 0.15)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: c.accent.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(Icons.description_outlined,
-                      color: c.accent, size: 22),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(r['baslik'] as String,
-                          style: TextStyle(
-                              color: c.text,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14)),
-                      const SizedBox(height: 3),
-                      Text(r['firmaIsim'] as String,
-                          style: TextStyle(
-                              color: c.accent.withValues(alpha: 0.8),
-                              fontSize: 12)),
-                      Text(
-                        "${tarih.day.toString().padLeft(2, '0')}.${tarih.month.toString().padLeft(2, '0')}.${tarih.year}",
-                        style: TextStyle(
-                            color: Colors.grey[600], fontSize: 11),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.chevron_right,
-                    color: Colors.grey, size: 18),
-              ],
+              contentPadding: const EdgeInsets.symmetric(vertical: 12),
             ),
           ),
-        );
-      },
+        ),
+        if (filtered.isEmpty)
+          Expanded(
+            child: Center(
+              child: Text(
+                _arama.isEmpty
+                    ? 'Henüz görsel rapor oluşturulmadı'
+                    : 'Sonuç bulunamadı',
+                style: TextStyle(color: Colors.grey[600], fontSize: 14),
+              ),
+            ),
+          )
+        else
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+              itemCount: filtered.length,
+              itemBuilder: (_, i) {
+                final r = filtered[i];
+                final tarih = r['tarih'] as DateTime;
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => RaporDetayPage(
+                          rapor: GorselRapor(
+                            id: r['id'] as String,
+                            tarih: tarih,
+                            fotoPaths: List<String>.from(r['fotoPaths']),
+                            baslik: r['baslik'] as String,
+                            rapor: r['rapor'] as String,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: c.card,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                          color: c.accent.withValues(alpha: 0.15)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: c.accent.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(Icons.description_outlined,
+                              color: c.accent, size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(r['baslik'] as String,
+                                  style: TextStyle(
+                                      color: c.text,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14)),
+                              const SizedBox(height: 3),
+                              Text(r['firmaIsim'] as String,
+                                  style: TextStyle(
+                                      color: c.accent.withValues(alpha: 0.8),
+                                      fontSize: 12)),
+                              Text(
+                                "${tarih.day.toString().padLeft(2, '0')}.${tarih.month.toString().padLeft(2, '0')}.${tarih.year}",
+                                style: TextStyle(
+                                    color: Colors.grey[600], fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right,
+                            color: Colors.grey, size: 18),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
     );
   }
 }

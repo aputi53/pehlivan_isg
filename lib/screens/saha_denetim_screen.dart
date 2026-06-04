@@ -125,69 +125,295 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
     );
   }
 
-  void yeniFirmaEklePopup(int grupIndex) {
-    final adController = TextEditingController();
-    final telController = TextEditingController();
-    final mailController = TextEditingController();
+  void yeniFirmaEklePopup(int grupIndex) async {
+    final allFirmalar = await DatabaseService.getAllFirmalar();
+    if (!mounted) return;
+
+    final targetGrupId = gruplar[grupIndex]["id"] as int;
+    final targetGrupAdi = gruplar[grupIndex]["grupAdi"] as String;
     final colors = AppColors.of(context);
 
-    showModalBottomSheet(
+    String mode = 'picker';
+    String arama = '';
+    final aramaCtrl = TextEditingController();
+    final adCtrl = TextEditingController();
+    final telCtrl = TextEditingController();
+    final mailCtrl = TextEditingController();
+
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: colors.bg,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
-            left: 20,
-            right: 20,
-            top: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text("Firma Bilgileri",
-                style: TextStyle(fontSize: 18, color: colors.accent)),
-            TextField(
-                controller: adController,
-                decoration:
-                const InputDecoration(labelText: "Firma Adı")),
-            TextField(
-                controller: telController,
-                decoration: const InputDecoration(labelText: "Telefon")),
-            TextField(
-                controller: mailController,
-                decoration: const InputDecoration(labelText: "E-posta")),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () async {
-                final grupId = gruplar[grupIndex]["id"] as int;
-                final id = await DatabaseService.insertFirma(
-                  grupId,
-                  adController.text,
-                  telController.text,
-                  mailController.text,
-                );
-                setState(() {
-                  gruplar[grupIndex]["firmalar"].add({
-                    "id": id,
-                    "grupId": grupId,
-                    "isim": adController.text,
-                    "telefon": telController.text,
-                    "mail": mailController.text,
-                    "durum": "NORMAL",
-                    "notlar": <FirmaNot>[],
-                    "raporlar": <GorselRapor>[],
-                    "belgeler": <Map<String, dynamic>>[],
-                  });
-                });
-                if (ctx.mounted) Navigator.pop(ctx);
-              },
-              child: const Text("EKLE"),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setM) {
+        final filtered = allFirmalar.where((f) {
+          if (arama.isEmpty) return true;
+          final q = arama.toLowerCase();
+          return (f['isim'] as String).toLowerCase().contains(q) ||
+              (f['grupAdi'] as String? ?? '').toLowerCase().contains(q);
+        }).toList();
+
+        return SizedBox(
+          height: MediaQuery.of(context).size.height * 0.82,
+          child: Column(children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                  color: Colors.grey[600],
+                  borderRadius: BorderRadius.circular(2)),
             ),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(children: [
+                Expanded(
+                  child: Text(
+                    mode == 'picker' ? 'Gruba Firma Ekle' : 'Yeni Firma Oluştur',
+                    style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: colors.text),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => setM(() => mode = mode == 'picker' ? 'yeni' : 'picker'),
+                  icon: Icon(mode == 'picker' ? Icons.add : Icons.list,
+                      size: 16, color: colors.accent),
+                  label: Text(
+                    mode == 'picker' ? 'Yeni' : 'Listeden',
+                    style: TextStyle(color: colors.accent, fontSize: 13),
+                  ),
+                ),
+              ]),
+            ),
+            const Divider(height: 16),
+
+            if (mode == 'picker') ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: TextField(
+                  controller: aramaCtrl,
+                  style: TextStyle(color: colors.text),
+                  decoration: InputDecoration(
+                    hintText: 'Firma adı veya grup ara...',
+                    hintStyle: TextStyle(color: colors.textMuted),
+                    prefixIcon:
+                        Icon(Icons.search, color: colors.accent, size: 20),
+                    filled: true,
+                    fillColor: colors.card,
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  onChanged: (v) => setM(() => arama = v),
+                ),
+              ),
+              Expanded(
+                child: filtered.isEmpty
+                    ? Center(
+                        child: Text('Kayıtlı firma bulunamadı',
+                            style: TextStyle(color: colors.textMuted)))
+                    : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+                        itemCount: filtered.length,
+                        itemBuilder: (_, i) {
+                          final f = filtered[i];
+                          final firmaGrupId = f['grupId'] as int?;
+                          final firmaGrupAdi = f['grupAdi'] as String?;
+                          final isThisGroup = firmaGrupId == targetGrupId;
+                          final isOtherGroup =
+                              firmaGrupId != null && !isThisGroup;
+
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            leading: Container(
+                              width: 40, height: 40,
+                              decoration: BoxDecoration(
+                                color: isThisGroup
+                                    ? Colors.green.withValues(alpha: 0.15)
+                                    : colors.accent.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                isThisGroup
+                                    ? Icons.check_circle
+                                    : Icons.business,
+                                color: isThisGroup
+                                    ? Colors.green
+                                    : colors.accent,
+                                size: 20,
+                              ),
+                            ),
+                            title: Text(f['isim'] as String,
+                                style: TextStyle(
+                                    color: isThisGroup
+                                        ? Colors.green
+                                        : colors.text,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14)),
+                            subtitle: Text(
+                              isThisGroup
+                                  ? 'Bu grupta'
+                                  : (firmaGrupAdi != null
+                                      ? firmaGrupAdi
+                                      : 'Grupsuz'),
+                              style: TextStyle(
+                                color: isThisGroup
+                                    ? Colors.green.withValues(alpha: 0.7)
+                                    : (isOtherGroup
+                                        ? Colors.orange.withValues(alpha: 0.9)
+                                        : colors.textMuted),
+                                fontSize: 12,
+                              ),
+                            ),
+                            trailing: isOtherGroup
+                                ? Icon(Icons.swap_horiz,
+                                    color:
+                                        Colors.orange.withValues(alpha: 0.7),
+                                    size: 18)
+                                : (isThisGroup
+                                    ? null
+                                    : Icon(Icons.add_circle_outline,
+                                        color: colors.accent
+                                            .withValues(alpha: 0.6),
+                                        size: 18)),
+                            onTap: isThisGroup
+                                ? null
+                                : () async {
+                                    final firmaId = f['id'] as int;
+
+                                    if (isOtherGroup) {
+                                      final eskiGrupAdi =
+                                          firmaGrupAdi ?? 'başka bir grup';
+                                      final onay = await showDialog<bool>(
+                                        context: context,
+                                        builder: (dialogCtx) => AlertDialog(
+                                          backgroundColor: colors.card,
+                                          shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(16)),
+                                          title:
+                                              const Text("Firmayı Taşı"),
+                                          content: Text(
+                                            '"${f['isim']}" firması "$eskiGrupAdi" grubuna dahildir.\n\n"$targetGrupAdi" grubuna taşınmasını onaylıyor musunuz?',
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(
+                                                        dialogCtx, false),
+                                                child:
+                                                    const Text("İptal")),
+                                            ElevatedButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(
+                                                      dialogCtx, true),
+                                              style:
+                                                  ElevatedButton.styleFrom(
+                                                      backgroundColor:
+                                                          colors.accent,
+                                                      foregroundColor:
+                                                          Colors.black),
+                                              child: const Text("Evet, Taşı"),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                      if (onay != true) return;
+                                    }
+
+                                    await DatabaseService.assignFirmaToGrup(
+                                        firmaId, targetGrupId);
+                                    await _loadData();
+                                    if (ctx.mounted) Navigator.pop(ctx);
+                                  },
+                          );
+                        },
+                      ),
+              ),
+            ] else ...[
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.only(
+                    left: 20, right: 20, top: 4,
+                    bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+                  ),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    TextField(
+                      controller: adCtrl,
+                      decoration:
+                          const InputDecoration(labelText: "Firma Adı *"),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: telCtrl,
+                      keyboardType: TextInputType.phone,
+                      decoration:
+                          const InputDecoration(labelText: "Telefon"),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: mailCtrl,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration:
+                          const InputDecoration(labelText: "E-posta"),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final isim = adCtrl.text.trim();
+                          if (isim.isEmpty) return;
+                          final id = await DatabaseService.insertFirma(
+                            targetGrupId, isim,
+                            telCtrl.text.trim(), mailCtrl.text.trim(),
+                          );
+                          setState(() {
+                            gruplar[grupIndex]["firmalar"].add({
+                              "id": id,
+                              "grupId": targetGrupId,
+                              "isim": isim,
+                              "telefon": telCtrl.text.trim(),
+                              "mail": mailCtrl.text.trim(),
+                              "durum": "NORMAL",
+                              "notlar": <FirmaNot>[],
+                              "raporlar": <GorselRapor>[],
+                              "belgeler": <Map<String, dynamic>>[],
+                            });
+                          });
+                          if (ctx.mounted) Navigator.pop(ctx);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: colors.accent,
+                          foregroundColor: Colors.black,
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text("EKLE",
+                            style:
+                                TextStyle(fontWeight: FontWeight.w700)),
+                      ),
+                    ),
+                  ]),
+                ),
+              ),
+            ],
+          ]),
+        );
+      }),
     );
+
+    aramaCtrl.dispose();
+    adCtrl.dispose();
+    telCtrl.dispose();
+    mailCtrl.dispose();
   }
 
   Color durumRenk(String d) {

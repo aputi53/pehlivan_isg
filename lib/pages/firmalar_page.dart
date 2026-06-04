@@ -21,6 +21,8 @@ class _FirmalarPageState extends State<FirmalarPage> {
   bool _loading = true;
   final _aramaCtrl = TextEditingController();
   String _arama = '';
+  String _grupFiltre = 'tumu'; // tumu | gruplu | grupsuz
+  String _siralama = 'isimAZ'; // isimAZ | isimZA | grupAZ | grupZA
 
   @override
   void initState() {
@@ -43,13 +45,45 @@ class _FirmalarPageState extends State<FirmalarPage> {
   }
 
   List<Map<String, dynamic>> get _filtered {
-    if (_arama.isEmpty) return _firmalar;
-    final q = _arama.toLowerCase();
-    return _firmalar.where((f) {
-      final isim = (f['isim'] as String).toLowerCase();
-      final grup = (f['grupAdi'] as String? ?? '').toLowerCase();
-      return isim.contains(q) || grup.contains(q);
-    }).toList();
+    var list = List<Map<String, dynamic>>.from(_firmalar);
+
+    if (_grupFiltre == 'gruplu') {
+      list = list.where((f) => f['grupId'] != null).toList();
+    } else if (_grupFiltre == 'grupsuz') {
+      list = list.where((f) => f['grupId'] == null).toList();
+    }
+
+    if (_arama.isNotEmpty) {
+      final q = _arama.toLowerCase();
+      list = list.where((f) {
+        final isim = (f['isim'] as String).toLowerCase();
+        final grup = (f['grupAdi'] as String? ?? '').toLowerCase();
+        return isim.contains(q) || grup.contains(q);
+      }).toList();
+    }
+
+    list.sort((a, b) {
+      switch (_siralama) {
+        case 'isimZA':
+          return (b['isim'] as String)
+              .toLowerCase()
+              .compareTo((a['isim'] as String).toLowerCase());
+        case 'grupAZ':
+          final ga = (a['grupAdi'] as String? ?? '').toLowerCase();
+          final gb = (b['grupAdi'] as String? ?? '').toLowerCase();
+          return ga.compareTo(gb);
+        case 'grupZA':
+          final ga = (a['grupAdi'] as String? ?? '').toLowerCase();
+          final gb = (b['grupAdi'] as String? ?? '').toLowerCase();
+          return gb.compareTo(ga);
+        default: // isimAZ
+          return (a['isim'] as String)
+              .toLowerCase()
+              .compareTo((b['isim'] as String).toLowerCase());
+      }
+    });
+
+    return list;
   }
 
   Future<void> _addFirmaSheet() async {
@@ -452,6 +486,56 @@ class _FirmalarPageState extends State<FirmalarPage> {
     }
   }
 
+  Widget _grupFiltreChip(String label, String value, AppColors colors) {
+    final selected = _grupFiltre == value;
+    return GestureDetector(
+      onTap: () => setState(() => _grupFiltre = value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected
+              ? colors.accent.withValues(alpha: 0.15)
+              : colors.card,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected
+                ? colors.accent.withValues(alpha: 0.6)
+                : colors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? colors.accent : colors.textMuted,
+            fontSize: 12,
+            fontWeight:
+                selected ? FontWeight.w600 : FontWeight.w400,
+          ),
+        ),
+      ),
+    );
+  }
+
+  PopupMenuItem<String> _sortMenuItem(String value, String label) {
+    final selected = _siralama == value;
+    return PopupMenuItem<String>(
+      value: value,
+      child: Row(
+        children: [
+          Icon(
+            selected
+                ? Icons.radio_button_checked
+                : Icons.radio_button_unchecked,
+            size: 16,
+            color: selected ? Colors.amber : Colors.grey,
+          ),
+          const SizedBox(width: 8),
+          Text(label, style: const TextStyle(fontSize: 14)),
+        ],
+      ),
+    );
+  }
+
   Widget _inputField(TextEditingController ctrl, String label,
       {TextInputType keyboardType = TextInputType.text}) {
     final colors = AppColors.of(context);
@@ -542,16 +626,42 @@ class _FirmalarPageState extends State<FirmalarPage> {
                   ),
                 ),
                 Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  padding: const EdgeInsets.fromLTRB(12, 4, 8, 2),
                   child: Row(
                     children: [
-                      Text(
-                        "${filtered.length} firma",
-                        style:
-                            TextStyle(color: Colors.grey[500], fontSize: 12),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(children: [
+                            _grupFiltreChip('Tümü', 'tumu', colors),
+                            const SizedBox(width: 8),
+                            _grupFiltreChip('Gruplu', 'gruplu', colors),
+                            const SizedBox(width: 8),
+                            _grupFiltreChip('Grupsuz', 'grupsuz', colors),
+                          ]),
+                        ),
+                      ),
+                      PopupMenuButton<String>(
+                        icon: Icon(Icons.sort, color: colors.accent, size: 20),
+                        tooltip: 'Sırala',
+                        color: colors.card,
+                        onSelected: (v) => setState(() => _siralama = v),
+                        itemBuilder: (_) => [
+                          _sortMenuItem('isimAZ', 'İsim A → Z'),
+                          _sortMenuItem('isimZA', 'İsim Z → A'),
+                          _sortMenuItem('grupAZ', 'Grup A → Z'),
+                          _sortMenuItem('grupZA', 'Grup Z → A'),
+                        ],
                       ),
                     ],
+                  ),
+                ),
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                  child: Text(
+                    "${filtered.length} firma",
+                    style: TextStyle(color: Colors.grey[500], fontSize: 12),
                   ),
                 ),
                 Expanded(
@@ -642,16 +752,21 @@ class _FirmalarPageState extends State<FirmalarPage> {
                                   crossAxisAlignment:
                                       CrossAxisAlignment.start,
                                   children: [
-                                    if (grupAdi != null)
-                                      Text(
-                                        grupAdi,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                            color: colors.accent
-                                                .withValues(alpha: 0.75),
-                                            fontSize: 11),
+                                    Text(
+                                      grupAdi ?? 'Grup Yok',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: grupAdi != null
+                                            ? colors.accent
+                                                .withValues(alpha: 0.75)
+                                            : Colors.grey[600],
+                                        fontSize: 11,
+                                        fontStyle: grupAdi == null
+                                            ? FontStyle.italic
+                                            : FontStyle.normal,
                                       ),
+                                    ),
                                     if (telefon.isNotEmpty)
                                       Text(
                                         telefon,

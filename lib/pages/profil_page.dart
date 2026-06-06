@@ -26,11 +26,11 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
   String name = "Abdurrahman Pehlivan";
   String email = "kullanici@isg.com";
   String phone = "+90 5xx xxx xx xx";
-  String title = "İş Sağlığı ve Güvenliği Uzmanı";
-  String department = "HSE Departmanı";
-  String employeeId = "ISG-2024-001";
+  String title = "A Sınıfı İş Güvenliği Uzmanı";
+  String profession = "İş Güvenliği Uzmanı";
+  String employeeId = "";
   String certLevel = "A Sınıfı";
-  String experience = "8 Yıl";
+  String startDate = "";
   String? profileImageBase64;
   String companyName = '';
   String? companyLogoBase64;
@@ -56,29 +56,29 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
 
   // SÜREÇ ANALİZİ: Hafızadan verileri güvenli okuma fonksiyonu
   Future<void> _loadProfileData() async {
-    final savedName = await _storage.read(key: "user_name");
-    final savedEmail = await _storage.read(key: "user_email");
-    final savedPhone = await _storage.read(key: "user_phone");
-    final savedTitle = await _storage.read(key: "user_title");
-    final savedDept = await _storage.read(key: "user_dept");
-    final savedEmpId = await _storage.read(key: "user_emp_id");
-    final savedCert = await _storage.read(key: "user_cert");
-    final savedExp = await _storage.read(key: "user_exp");
-    final savedImg = await _storage.read(key: "user_image_base64");
-    final savedCompany = await _storage.read(key: "user_company");
-    final savedCompanyLogo = await _storage.read(key: "user_company_logo");
+    final savedName       = await _storage.read(key: "user_name");
+    final savedEmail      = await _storage.read(key: "user_email");
+    final savedPhone      = await _storage.read(key: "user_phone");
+    final savedTitle      = await _storage.read(key: "user_title");
+    final savedProfession = await _storage.read(key: "user_profession");
+    final savedEmpId      = await _storage.read(key: "user_emp_id");
+    final savedCert       = await _storage.read(key: "user_cert");
+    final savedStartDate  = await _storage.read(key: "user_company_start_date");
+    final savedImg        = await _storage.read(key: "user_image_base64");
+    final savedCompany    = await _storage.read(key: "user_company");
+    final savedCompanyLogo= await _storage.read(key: "user_company_logo");
 
     setState(() {
-      if (savedName != null) name = savedName;
-      if (savedEmail != null) email = savedEmail;
-      if (savedPhone != null) phone = savedPhone;
-      if (savedTitle != null) title = savedTitle;
-      if (savedDept != null) department = savedDept;
-      if (savedEmpId != null) employeeId = savedEmpId;
-      if (savedCert != null) certLevel = savedCert;
-      if (savedExp != null) experience = savedExp;
-      if (savedImg != null) profileImageBase64 = savedImg;
-      if (savedCompany != null) companyName = savedCompany;
+      if (savedName != null)       name       = savedName;
+      if (savedEmail != null)      email      = savedEmail;
+      if (savedPhone != null)      phone      = savedPhone;
+      if (savedTitle != null)      title      = savedTitle;
+      if (savedProfession != null) profession = savedProfession;
+      if (savedEmpId != null)      employeeId = savedEmpId;
+      if (savedCert != null)       certLevel  = savedCert;
+      if (savedStartDate != null)  startDate  = savedStartDate;
+      if (savedImg != null)        profileImageBase64 = savedImg;
+      if (savedCompany != null)    companyName = savedCompany;
       companyLogoBase64 = savedCompanyLogo;
     });
   }
@@ -87,6 +87,47 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
   void dispose() {
     _animController.dispose();
     super.dispose();
+  }
+
+  // Başlangıç tarihinden bugüne geçen süre (tam metin: "5 Yıl 42 Gün")
+  String _calculateDuration(String dateStr) {
+    if (dateStr.isEmpty) return '';
+    try {
+      final p = dateStr.split('.');
+      if (p.length != 3) return '';
+      final start = DateTime(int.parse(p[2]), int.parse(p[1]), int.parse(p[0]));
+      final now = DateTime.now();
+      if (!now.isAfter(start)) return '';
+      int years = now.year - start.year;
+      final lastAnniv = DateTime(start.year + years, start.month, start.day);
+      if (lastAnniv.isAfter(now)) years--;
+      final annivDate = DateTime(start.year + years, start.month, start.day);
+      final remainDays = now.difference(annivDate).inDays;
+      if (years > 0 && remainDays > 0) return '$years Yıl $remainDays Gün';
+      if (years > 0) return '$years Yıl';
+      return '${now.difference(start).inDays} Gün';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  // Stat kart için kısa versiyon ("5 Yıl" veya "286 Gün")
+  String _durationShort(String dateStr) {
+    if (dateStr.isEmpty) return '-';
+    try {
+      final p = dateStr.split('.');
+      if (p.length != 3) return '-';
+      final start = DateTime(int.parse(p[2]), int.parse(p[1]), int.parse(p[0]));
+      final now = DateTime.now();
+      if (!now.isAfter(start)) return '-';
+      int years = now.year - start.year;
+      final lastAnniv = DateTime(start.year + years, start.month, start.day);
+      if (lastAnniv.isAfter(now)) years--;
+      if (years > 0) return '$years Yıl';
+      return '${now.difference(start).inDays} Gün';
+    } catch (_) {
+      return '-';
+    }
   }
 
   @override
@@ -144,15 +185,23 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
                 _buildSectionTitle("Mesleki Bilgiler"),
                 const SizedBox(height: 10),
                 _infoTile(Icons.badge_outlined, "Unvan", title),
-                _infoTile(Icons.domain_outlined, "Departman", department),
-                _infoTile(Icons.fingerprint_outlined, "Sicil No", employeeId),
-                _infoTile(Icons.workspace_premium_outlined, "Sınıf", certLevel),
+                _infoTile(Icons.workspace_premium_outlined, "Sertifika No",
+                    employeeId.isNotEmpty ? employeeId : '-'),
 
-                if (companyName.isNotEmpty || companyLogoBase64 != null) ...[
+                if (companyName.isNotEmpty ||
+                    companyLogoBase64 != null ||
+                    startDate.isNotEmpty) ...[
                   const SizedBox(height: 20),
                   _buildSectionTitle("Firma Bilgileri"),
                   const SizedBox(height: 10),
                   _buildCompanyTile(),
+                  if (startDate.isNotEmpty)
+                    _infoTile(
+                      Icons.calendar_today_outlined,
+                      "İşe Giriş Tarihi",
+                      startDate,
+                      subtitle: _calculateDuration(startDate),
+                    ),
                 ],
 
                 const SizedBox(height: 28),
@@ -180,10 +229,11 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
           end: Alignment.bottomRight,
           colors: [Color(0xFF151C2E), Color(0xFF0F1420)],
         ),
-        border: Border.all(color: const Color(0xFFE8B84B).withOpacity(0.18), width: 1),
+        border: Border.all(
+            color: const Color(0xFFE8B84B).withValues(alpha: 0.22), width: 1),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFE8B84B).withOpacity(0.06),
+            color: const Color(0xFFE8B84B).withValues(alpha: 0.08),
             blurRadius: 32,
             offset: const Offset(0, 8),
           ),
@@ -191,7 +241,13 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
       ),
       child: Stack(
         children: [
-          // Sağ üst köşedeki sarı parlamayı oluşturan Positioned bloğu buradan tamamen kaldırıldı.
+          // ── Dekoratif arka plan deseni ──
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: CustomPaint(painter: _HeroPatternPainter()),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
@@ -208,7 +264,7 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFE8B84B).withOpacity(0.3),
+                            color: const Color(0xFFE8B84B).withValues(alpha: 0.30),
                             blurRadius: 20,
                             offset: const Offset(0, 6),
                           ),
@@ -218,12 +274,12 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
                       child: CircleAvatar(
                         radius: 52,
                         backgroundColor: const Color(0xFF0F1420),
-                        // DEĞİŞİKLİK: FileImage yerine metni resme çözen MemoryImage kullanıldı
                         backgroundImage: profileImageBase64 != null
                             ? MemoryImage(base64Decode(profileImageBase64!))
                             : null,
                         child: profileImageBase64 == null
-                            ? const Icon(Icons.person, size: 52, color: Color(0xFFE8B84B))
+                            ? const Icon(Icons.person,
+                                size: 52, color: Color(0xFFE8B84B))
                             : null,
                       ),
                     ),
@@ -234,9 +290,11 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
                         decoration: BoxDecoration(
                           color: const Color(0xFFE8B84B),
                           shape: BoxShape.circle,
-                          border: Border.all(color: const Color(0xFF0F1420), width: 2),
+                          border: Border.all(
+                              color: const Color(0xFF0F1420), width: 2),
                         ),
-                        child: const Icon(Icons.camera_alt, size: 14, color: Color(0xFF0A0E1A)),
+                        child: const Icon(Icons.camera_alt,
+                            size: 14, color: Color(0xFF0A0E1A)),
                       ),
                     ),
                   ],
@@ -244,6 +302,7 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
 
                 const SizedBox(height: 16),
 
+                // İsim
                 Text(
                   name,
                   style: const TextStyle(
@@ -254,14 +313,18 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
                   ),
                 ),
 
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
 
+                // Unvan badge (amber çerçeveli)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE8B84B).withOpacity(0.12),
+                    color: const Color(0xFFE8B84B).withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFFE8B84B).withOpacity(0.3)),
+                    border: Border.all(
+                        color: const Color(0xFFE8B84B).withValues(alpha: 0.45),
+                        width: 1.2),
                   ),
                   child: Text(
                     title,
@@ -274,25 +337,19 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
                   ),
                 ),
 
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
 
-                Text(
-                  department,
-                  style: const TextStyle(
-                    color: Colors.white38,
-                    fontSize: 13,
-                  ),
-                ),
-
-                const SizedBox(height: 4),
-
-                // DÜZELTİLMİŞ KISIM
+                // Yeşil onay satırı
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.center, // <-- Bu şekilde güncelleyin
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.verified_outlined, size: 14, color: Color(0xFF4ADE80)),
+                    const Icon(Icons.verified_outlined,
+                        size: 14, color: Color(0xFF4ADE80)),
+                    const SizedBox(width: 4),
                     Text(
-                      "Sertifikalı ISG Uzmanı · $certLevel",
+                      profession == 'İşyeri Hekimi'
+                          ? 'Sertifikalı İşyeri Hekimi'
+                          : 'Sertifikalı ISG Uzmanı · $certLevel',
                       style: const TextStyle(
                         color: Color(0xFF4ADE80),
                         fontSize: 12,
@@ -311,15 +368,26 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
 
   // ── STATS ROW ─────────────────────────────────────────────────────────────
   Widget _buildStatsRow() {
+    // Deneyim: başlangıç tarihinden kısa süre hesabı
+    final deneyim = _durationShort(startDate);
+    // Sınıf/Meslek stat değeri
+    final classStat = profession == 'İşyeri Hekimi'
+        ? 'Hekim'
+        : (certLevel.isNotEmpty ? certLevel.replaceAll(' Sınıfı', '') : '-');
+    // Sertifika numarası stat (sadece rakam kısmı)
+    final certNumStat = employeeId.contains('-')
+        ? employeeId.split('-').last
+        : (employeeId.isNotEmpty ? employeeId : '-');
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          _statCard(Icons.work_history_outlined, experience, "Deneyim"),
+          _statCard(Icons.work_history_outlined, deneyim, "Deneyim"),
           const SizedBox(width: 10),
-          _statCard(Icons.shield_outlined, certLevel, "Sınıf"),
+          _statCard(Icons.shield_outlined, classStat, "Sınıf"),
           const SizedBox(width: 10),
-          _statCard(Icons.assignment_ind_outlined, employeeId.split("-").last, "Sicil"),
+          _statCard(Icons.assignment_ind_outlined, certNumStat, "Sertifika"),
         ],
       ),
     );
@@ -332,7 +400,9 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
         decoration: BoxDecoration(
           color: const Color(0xFF151C2E),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.06)),
+          border: Border.all(
+              color: const Color(0xFFE8B84B).withValues(alpha: 0.22),
+              width: 1),
         ),
         child: Column(
           children: [
@@ -387,21 +457,24 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
   }
 
   // ── INFO TILE ─────────────────────────────────────────────────────────────
-  Widget _infoTile(IconData icon, String label, String value) {
+  Widget _infoTile(IconData icon, String label, String value,
+      {String? subtitle}) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: const Color(0xFF10151F),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(
+            color: const Color(0xFFE8B84B).withValues(alpha: 0.15),
+            width: 0.8),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFFE8B84B).withOpacity(0.10),
+              color: const Color(0xFFE8B84B).withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, color: const Color(0xFFE8B84B), size: 18),
@@ -412,12 +485,34 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label,
-                    style: const TextStyle(color: Colors.white38, fontSize: 11,
+                    style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 11,
                         letterSpacing: 0.5)),
                 const SizedBox(height: 3),
                 Text(value,
                     style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14)),
+                if (subtitle != null && subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.timer_outlined,
+                          size: 11, color: Color(0xFFE8B84B)),
+                      const SizedBox(width: 4),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(
+                          color: Color(0xFFE8B84B),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -570,64 +665,83 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
 
   // SÜREÇ ANALİZİ: Düzenleme sayfasından gelen verileri hafızaya mühürleme adımı
   Future<void> _openEditPage() async {
+    // Telefon +90 prefix'ini soy
+    String rawPhone = phone;
+    if (rawPhone.startsWith('+90 ')) rawPhone = rawPhone.substring(4);
+    else if (rawPhone.startsWith('+90')) rawPhone = rawPhone.substring(3);
+
+    // Sertifika numarasının prefix'ini soy
+    String rawCertNum = employeeId;
+    if (rawCertNum.startsWith('İGU-')) rawCertNum = rawCertNum.substring(4);
+    else if (rawCertNum.startsWith('İH-')) rawCertNum = rawCertNum.substring(3);
+    // Eski format (ISG-2024-001 gibi) varsa sadece rakamları al
+    else rawCertNum = rawCertNum.replaceAll(RegExp(r'[^0-9]'), '');
+
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => EditProfilePage(
-          name: name,
-          email: email,
-          phone: phone,
-          title: title,
-          department: department,
-          employeeId: employeeId,
-          certLevel: certLevel,
-          experience: experience,
+          name:               name,
+          email:              email,
+          phone:              rawPhone,
+          profession:         profession,
+          certLevel:          certLevel,
+          certNumber:         rawCertNum,
+          startDate:          startDate,
           profileImageBase64: profileImageBase64,
-          companyName: companyName,
-          companyLogoBase64: companyLogoBase64,
+          companyName:        companyName,
+          companyLogoBase64:  companyLogoBase64,
         ),
       ),
     );
 
-    // Kullanıcı değişiklikleri kaydedip geri döndüyse
     if (result != null && result is Map<String, dynamic>) {
-      // 1. Gelen tüm verileri güvenli hafızaya kalıcı olarak yazıyoruz
-      if (result["name"] != null) await _storage.write(key: "user_name", value: result["name"]);
-      if (result["email"] != null) await _storage.write(key: "user_email", value: result["email"]);
-      if (result["phone"] != null) await _storage.write(key: "user_phone", value: result["phone"]);
-      if (result["title"] != null) await _storage.write(key: "user_title", value: result["title"]);
-      if (result["department"] != null) await _storage.write(key: "user_dept", value: result["department"]);
-      if (result["employeeId"] != null) await _storage.write(key: "user_emp_id", value: result["employeeId"]);
-      if (result["certLevel"] != null) await _storage.write(key: "user_cert", value: result["certLevel"]);
-      if (result["experience"] != null) await _storage.write(key: "user_exp", value: result["experience"]);
-      if (result["profileImageBase64"] != null) {
-        await _storage.write(key: "user_image_base64", value: result["profileImageBase64"]);
-      }
-      if (result["companyName"] != null) {
-        await _storage.write(key: "user_company", value: result["companyName"]);
-      }
-      if (result["companyLogoBase64"] != null) {
-        await _storage.write(key: "user_company_logo", value: result["companyLogoBase64"]);
-      } else {
-        await _storage.delete(key: "user_company_logo");
-      }
-
-      // 2. Arayüzün anlık güncellenmesi için state'i yeniliyoruz
       setState(() {
-        name = result["name"] ?? name;
-        email = result["email"] ?? email;
-        phone = result["phone"] ?? phone;
-        title = result["title"] ?? title;
-        department = result["department"] ?? department;
-        employeeId = result["employeeId"] ?? employeeId;
-        certLevel = result["certLevel"] ?? certLevel;
-        experience = result["experience"] ?? experience;
-        if (result["profileImageBase64"] != null) {
-          profileImageBase64 = result["profileImageBase64"];
+        name       = result['name']       ?? name;
+        email      = result['email']      ?? email;
+        phone      = result['phone']      ?? phone;
+        profession = result['profession'] ?? profession;
+        title      = result['title']      ?? title;
+        certLevel  = result['certLevel']  ?? certLevel;
+        employeeId = result['certNumber'] ?? employeeId;
+        startDate  = result['startDate']  ?? startDate;
+        companyName = result['companyName'] ?? companyName;
+        companyLogoBase64 = result['companyLogoBase64'];
+        if (result['profileImageBase64'] != null) {
+          profileImageBase64 = result['profileImageBase64'];
         }
-        companyName = result["companyName"] ?? companyName;
-        companyLogoBase64 = result["companyLogoBase64"];
       });
     }
   }
+}
+
+// ── Hero kart dekoratif desen ──────────────────────────────────────────────
+class _HeroPatternPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Sağ üst köşe: amber eş merkezli yay halkalar
+    final paintArc = Paint()
+      ..color = const Color(0xFFE8B84B).withValues(alpha: 0.055)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+
+    final topRight = Offset(size.width + 10, -10);
+    for (final r in [70.0, 130.0, 190.0, 250.0, 310.0]) {
+      canvas.drawCircle(topRight, r, paintArc);
+    }
+
+    // Sol alt köşe: çok silik beyaz halkalar
+    final paintDim = Paint()
+      ..color = Colors.white.withValues(alpha: 0.025)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+
+    final bottomLeft = Offset(-10, size.height + 10);
+    for (final r in [60.0, 110.0, 160.0]) {
+      canvas.drawCircle(bottomLeft, r, paintDim);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_HeroPatternPainter old) => false;
 }

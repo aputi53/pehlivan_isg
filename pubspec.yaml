@@ -10,6 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
 
   cupertino_icons: ^1.0.8
   image_picker: ^1.1.2
@@ -36,6 +38,7 @@ dependencies:
   file_picker: ^8.1.2
   flutter_local_notifications: ^18.0.0
   open_filex: ^4.7.0
+  flutter_markdown: ^0.7.4
 
 # ---------------------------------------------------------
 # FLUTTER AYARLARI VE ASSET TANIMLAMALARI

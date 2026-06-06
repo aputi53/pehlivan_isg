@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:pehlivan_isg/pages/firma_detay_page.dart';
 import 'package:pehlivan_isg/services/database_service.dart';
 import 'package:pehlivan_isg/services/theme_service.dart';
+import 'package:pehlivan_isg/widgets/app_drawer.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -585,11 +586,19 @@ class _FirmalarPageState extends State<FirmalarPage> {
     final filtered = _filtered;
     final colors = AppColors.of(context);
     return Scaffold(
+      drawer: const AppDrawer(currentRoute: 'firmalar'),
       appBar: AppBar(
         backgroundColor: colors.card,
         foregroundColor: colors.text,
         title: const Text("Firmalar",
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        leading: Builder(
+          builder: (ctx) => IconButton(
+            icon: const Icon(Icons.menu_rounded),
+            onPressed: () => Scaffold.of(ctx).openDrawer(),
+            padding: const EdgeInsets.only(left: 16),
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.delete_sweep_outlined),

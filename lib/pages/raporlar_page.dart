@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pehlivan_isg/services/database_service.dart';
 import 'package:pehlivan_isg/services/theme_service.dart';
 import 'package:pehlivan_isg/pages/gorsel_rapor_page.dart';
+import 'package:pehlivan_isg/widgets/app_drawer.dart';
 
 class RaporlarPage extends StatefulWidget {
   const RaporlarPage({super.key});
@@ -47,13 +48,17 @@ class _RaporlarPageState extends State<RaporlarPage>
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
     return Scaffold(
+      drawer: const AppDrawer(currentRoute: 'raporlar'),
       appBar: AppBar(
         backgroundColor: c.bg,
         title: const Text("Raporlar",
             style: TextStyle(fontWeight: FontWeight.bold)),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-          onPressed: () => Navigator.pop(context),
+        leading: Builder(
+          builder: (ctx) => IconButton(
+            icon: const Icon(Icons.menu_rounded),
+            onPressed: () => Scaffold.of(ctx).openDrawer(),
+            padding: const EdgeInsets.only(left: 16),
+          ),
         ),
         bottom: TabBar(
           controller: _tabCtrl,

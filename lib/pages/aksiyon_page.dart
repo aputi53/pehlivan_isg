@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pehlivan_isg/services/database_service.dart';
 import 'package:pehlivan_isg/services/theme_service.dart';
+import 'package:pehlivan_isg/widgets/app_drawer.dart';
 
 class AksiyanPage extends StatefulWidget {
   const AksiyanPage({super.key});
@@ -321,12 +322,20 @@ class _AksiyanPageState extends State<AksiyanPage> {
         .toList();
 
     return Scaffold(
+      drawer: const AppDrawer(currentRoute: 'gorevler'),
       appBar: AppBar(
         backgroundColor: c.card,
         foregroundColor: c.text,
         title: const Text(
           "Görev Takibi",
           style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        leading: Builder(
+          builder: (ctx) => IconButton(
+            icon: const Icon(Icons.menu_rounded),
+            onPressed: () => Scaffold.of(ctx).openDrawer(),
+            padding: const EdgeInsets.only(left: 16),
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton(

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -58,6 +59,16 @@ class PehlivanISGApp extends StatelessWidget {
       valueListenable: themeService,
       builder: (_, config, __) => MaterialApp(
         debugShowCheckedModeBanner: false,
+        locale: const Locale('tr', 'TR'),
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('tr', 'TR'),
+          Locale('en', 'US'),
+        ],
         themeMode: config.mode,
         theme: buildThemeData(config.accent, Brightness.light),
         darkTheme: buildThemeData(config.accent, Brightness.dark),

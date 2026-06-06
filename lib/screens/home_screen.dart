@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:pehlivan_isg/pages/ai_asistan_page.dart';
 import 'package:pehlivan_isg/pages/aksiyon_page.dart';
 import 'package:pehlivan_isg/pages/firmalar_page.dart';
 import 'package:pehlivan_isg/pages/raporlar_page.dart';
@@ -58,15 +59,22 @@ class _AnaEkranState extends State<AnaEkran> {
 
   String _selamlama() {
     final h = DateTime.now().hour;
-    if (h < 12) return 'Günaydın';
-    if (h < 18) return 'İyi günler';
-    return 'İyi akşamlar';
+    if (h >= 5 && h < 12) return 'Günaydın! ☀️';
+    if (h >= 12 && h < 18) return 'İyi günler! 👋';
+    return 'İyi akşamlar! 🌙';
+  }
+
+  String _selamlamaMesaj() {
+    final h = DateTime.now().hour;
+    if (h >= 5 && h < 12) return 'Güvenli ve verimli bir gün dileriz.';
+    if (h >= 12 && h < 18) return 'Saha denetimleriniz nasıl gidiyor?';
+    return 'Bugünü başarıyla kapattınız.';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const AppDrawer(),
+      drawer: const AppDrawer(currentRoute: 'home'),
       appBar: _buildAppBar(context),
       body: RefreshIndicator(
         color: AppColors.of(context).accent,
@@ -78,18 +86,6 @@ class _AnaEkranState extends State<AnaEkran> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── LOGO ────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Image.asset(
-                  'assets/logo.png',
-                  width: double.infinity,
-                  fit: BoxFit.fitWidth,
-                  errorBuilder: (_, __, ___) => const SizedBox(height: 70),
-                ),
-              ),
-              const SizedBox(height: 12),
-
               // ── CANLI İSTATİSTİK KARTI ──────────────
               _StatsCard(
                 firmaCount: _firmaCount,
@@ -115,20 +111,31 @@ class _AnaEkranState extends State<AnaEkran> {
                 children: [
                   Container(
                     width: 3,
-                    height: 15,
+                    height: 16,
                     decoration: BoxDecoration(
                       color: AppColors.of(context).accent,
                       borderRadius: BorderRadius.circular(2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.of(context)
+                              .accent
+                              .withValues(alpha: 0.6),
+                          blurRadius: 6,
+                          spreadRadius: 1,
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(width: 8),
                   Text(
                     "MODÜLLER",
                     style: TextStyle(
-                      fontSize: 11,
-                      color: AppColors.of(context).textMuted,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 2,
+                      fontSize: 12,
+                      color: AppColors.of(context)
+                          .text
+                          .withValues(alpha: 0.85),
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 2.5,
                     ),
                   ),
                 ],
@@ -142,7 +149,7 @@ class _AnaEkranState extends State<AnaEkran> {
                 physics: const NeverScrollableScrollPhysics(),
                 mainAxisSpacing: 10,
                 crossAxisSpacing: 10,
-                childAspectRatio: 2.1,
+                childAspectRatio: 1.85,
                 children: [
                   _ModulKart(
                     baslik: "Saha Denetim",
@@ -219,6 +226,16 @@ class _AnaEkranState extends State<AnaEkran> {
                   ),
                 ],
               ),
+              const SizedBox(height: 10),
+
+              // ── AI ASISTAN KARTI (tam genişlik) ──────
+              _AiAsistanKarti(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const AiAsistanPage()),
+                ),
+              ),
             ],
           ),
         ),
@@ -226,52 +243,125 @@ class _AnaEkranState extends State<AnaEkran> {
     );
   }
 
-  AppBar _buildAppBar(BuildContext context) {
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
+    final colors = AppColors.of(context);
+    final mq = MediaQuery.of(context);
+    // Küçük ekran eşiği: 360dp altı (örn. eski Samsung/Xiaomi modeller)
+    final isSmallScreen = mq.size.width < 360;
+    // Metin ölçeği büyükse toolbar yüksekliğini orantılı artır
+    final textScale = mq.textScaler.scale(1.0).clamp(1.0, 1.4);
+    final toolbarH = (isSmallScreen ? 70.0 : 80.0) * textScale;
+    final logoSize = isSmallScreen ? 46.0 : 54.0;
+    final logoRadius = isSmallScreen ? 11.0 : 13.0;
+
     return AppBar(
-      backgroundColor: AppColors.of(context).card,
+      backgroundColor: colors.card,
+      toolbarHeight: toolbarH,
       elevation: 0,
-      titleSpacing: 4,
+      titleSpacing: 0,
+      shadowColor: Colors.black.withValues(alpha: 0.3),
+      surfaceTintColor: Colors.transparent,
+      shape: Border(
+        bottom: BorderSide(
+            color: colors.accent.withValues(alpha: 0.15), width: 1),
+      ),
+      // ── Hamburger menü ──
       leading: Builder(
         builder: (ctx) => IconButton(
-          icon: Icon(Icons.menu_rounded, color: AppColors.of(ctx).text),
+          icon: Icon(Icons.menu_rounded, color: colors.text, size: 24),
           onPressed: () => Scaffold.of(ctx).openDrawer(),
+          padding: const EdgeInsets.only(left: 16),
         ),
       ),
+      // ── Logo + Metin ──
       title: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Image.asset(
-            'assets/logo_sari.png',
-            height: 30,
-            fit: BoxFit.contain,
-            errorBuilder: (_, __, ___) => const Icon(
-              Icons.shield_outlined,
-              color: Colors.amber,
-              size: 26,
+          // Logo: çerçeve + gölge, boyut ekrana göre
+          Container(
+            width: logoSize,
+            height: logoSize,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(logoRadius),
+              border: Border.all(
+                color: colors.accent.withValues(alpha: 0.5),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: colors.accent.withValues(alpha: 0.28),
+                  blurRadius: 12,
+                  spreadRadius: 1,
+                  offset: const Offset(0, 3),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(logoRadius - 1),
+              child: Image.asset(
+                'assets/ana ekran logo.png',
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => Icon(
+                    Icons.shield_outlined,
+                    color: colors.accent,
+                    size: 26),
+              ),
             ),
           ),
           const SizedBox(width: 10),
+
+          // Metin sütunu — Expanded ile kalan genişliği tam kapla
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  _selamlama(),
-                  style: TextStyle(
-                      color: AppColors.of(context).textMuted,
-                      fontSize: 11,
-                      fontWeight: FontWeight.normal),
+                // PehlivanİSG görseli
+                Image.asset(
+                  'assets/ana ekran isim.png',
+                  height: isSmallScreen ? 17.0 : 20.0,
+                  fit: BoxFit.fitHeight,
+                  alignment: Alignment.centerLeft,
+                  errorBuilder: (_, __, ___) => Text(
+                    'PehlivanİSG',
+                    style: TextStyle(
+                        color: colors.accent,
+                        fontSize: isSmallScreen ? 11 : 13,
+                        fontWeight: FontWeight.w800),
+                  ),
                 ),
+                const SizedBox(height: 2),
+                // Kullanıcı adı — her zaman tek satır
                 Text(
-                  _kullaniciAdi.isNotEmpty
-                      ? _kullaniciAdi
-                      : 'PehlivanİSG',
+                  _kullaniciAdi.isNotEmpty ? _kullaniciAdi : 'Kullanıcı',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: AppColors.of(context).text,
-                    fontSize: 14,
+                    color: colors.text,
+                    fontSize: isSmallScreen ? 12.0 : 14.0,
                     fontWeight: FontWeight.bold,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                // Selamlama — taşma güvenli: maxLines:2 + ellipsis
+                // Küçük ekranda sadece selamlama kelimesi göster
+                Text(
+                  isSmallScreen
+                      ? _selamlama()
+                      : '${_selamlama()} ${_selamlamaMesaj()}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: colors.text.withValues(alpha: 0.65),
+                    fontSize: isSmallScreen ? 10.5 : 11.5,
+                    height: 1.35,
                   ),
                 ),
               ],
@@ -279,12 +369,14 @@ class _AnaEkranState extends State<AnaEkran> {
           ),
         ],
       ),
+      // ── Yenile butonu ──
       actions: [
         IconButton(
           icon: Icon(Icons.refresh_outlined,
-              color: AppColors.of(context).textMuted, size: 20),
+              color: colors.textMuted, size: 20),
           onPressed: _loadStats,
-          tooltip: "Yenile",
+          padding: const EdgeInsets.only(right: 12),
+          tooltip: 'Yenile',
         ),
       ],
     );
@@ -424,6 +516,100 @@ class _StatItem extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────
+// AI ASISTAN KARTI (tam genişlik, gradient)
+// ─────────────────────────────────────────────
+
+class _AiAsistanKarti extends StatelessWidget {
+  final VoidCallback onTap;
+  const _AiAsistanKarti({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF4527A0), Color(0xFF7C4DFF), Color(0xFF9C6DFF)],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF7C4DFF).withValues(alpha: 0.35),
+              blurRadius: 20,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.auto_awesome_rounded,
+                  color: Colors.white, size: 26),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'AI İSG Asistanı',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'Kanun, yönetmelik, risk değerlendirmesi sorularınız için',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.circle, color: Color(0xFF69FF47), size: 7),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Çevrimiçi',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
 // MODÜl KART (Grid için)
 // ─────────────────────────────────────────────
 
@@ -456,12 +642,19 @@ class _ModulKart extends StatelessWidget {
           color: AppColors.of(context).card,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-              color: renk.withValues(alpha: 0.25), width: 1),
+              color: renk.withValues(alpha: 0.28), width: 1),
           boxShadow: [
             BoxShadow(
-              color: renk.withValues(alpha: 0.04),
-              blurRadius: 12,
-              spreadRadius: 1,
+              color: renk.withValues(alpha: 0.13),
+              blurRadius: 16,
+              spreadRadius: 0,
+              offset: const Offset(0, 4),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 8,
+              spreadRadius: 0,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
@@ -522,7 +715,11 @@ class _ModulKart extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                        color: AppColors.of(context).textMuted, fontSize: 10),
+                      color: AppColors.of(context)
+                          .textMuted
+                          .withValues(alpha: 0.9),
+                      fontSize: 11,
+                    ),
                   ),
                 ],
               ),

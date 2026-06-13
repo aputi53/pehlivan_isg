@@ -40,6 +40,11 @@ dependencies:
   open_filex: ^4.7.0
   flutter_markdown: ^0.7.4
 
+  # --- MODERN UI PAKETLERİ ---
+  google_fonts: ^6.2.1
+  shimmer: ^3.0.0
+  fl_chart: ^0.68.0
+
 # ---------------------------------------------------------
 # FLUTTER AYARLARI VE ASSET TANIMLAMALARI
 # ---------------------------------------------------------

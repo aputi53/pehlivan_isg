@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 // ─── Accent renk presetleri ──────────────────────────────
 class AppAccent {
@@ -68,7 +69,6 @@ class ThemeService extends ValueNotifier<ThemeConfig> {
     notifyListeners();
   }
 
-  // Kolay erişim
   ThemeMode get mode => value.mode;
   Color get accent => value.accent;
   bool get isDark => value.mode == ThemeMode.dark;
@@ -142,30 +142,115 @@ class AppColors extends ThemeExtension<AppColors> {
       t < 0.5 ? this : (other as AppColors? ?? this);
 }
 
-// ─── ThemeData üreteci ───────────────────────────────────
+// ─── ThemeData üreteci (Material 3 + Google Fonts) ───────
 ThemeData buildThemeData(Color accent, Brightness brightness) {
   final isDark = brightness == Brightness.dark;
+  final appColors = isDark ? AppColors.dark(accent) : AppColors.light(accent);
+
   final cs = ColorScheme.fromSeed(
     seedColor: accent,
     brightness: brightness,
-  ).copyWith(primary: accent, secondary: accent);
+  ).copyWith(
+    primary: accent,
+    secondary: accent,
+    surface: appColors.card,
+    onSurface: appColors.text,
+    surfaceContainerHighest: appColors.cardDark,
+  );
 
-  final appColors =
-      isDark ? AppColors.dark(accent) : AppColors.light(accent);
+  final baseTextTheme =
+      isDark ? ThemeData.dark().textTheme : ThemeData.light().textTheme;
+
+  final textTheme = GoogleFonts.interTextTheme(baseTextTheme).copyWith(
+    displayLarge: GoogleFonts.outfit(
+        color: appColors.text, fontWeight: FontWeight.bold, fontSize: 32),
+    displayMedium: GoogleFonts.outfit(
+        color: appColors.text, fontWeight: FontWeight.bold, fontSize: 26),
+    displaySmall: GoogleFonts.outfit(
+        color: appColors.text, fontWeight: FontWeight.bold, fontSize: 22),
+    headlineLarge: GoogleFonts.outfit(
+        color: appColors.text, fontWeight: FontWeight.w700, fontSize: 20),
+    headlineMedium: GoogleFonts.outfit(
+        color: appColors.text, fontWeight: FontWeight.w700, fontSize: 18),
+    headlineSmall: GoogleFonts.outfit(
+        color: appColors.text, fontWeight: FontWeight.w600, fontSize: 16),
+    titleLarge: GoogleFonts.inter(
+        color: appColors.text, fontWeight: FontWeight.w600, fontSize: 16),
+    titleMedium: GoogleFonts.inter(
+        color: appColors.text, fontWeight: FontWeight.w600, fontSize: 14),
+    titleSmall: GoogleFonts.inter(
+        color: appColors.text, fontWeight: FontWeight.w500, fontSize: 13),
+    bodyLarge: GoogleFonts.inter(color: appColors.text, fontSize: 16),
+    bodyMedium: GoogleFonts.inter(color: appColors.text, fontSize: 14),
+    bodySmall: GoogleFonts.inter(color: appColors.textMuted, fontSize: 12),
+    labelLarge: GoogleFonts.inter(
+        color: appColors.text, fontWeight: FontWeight.w500, fontSize: 14),
+    labelMedium: GoogleFonts.inter(color: appColors.textMuted, fontSize: 12),
+    labelSmall: GoogleFonts.inter(color: appColors.textMuted, fontSize: 11),
+  );
 
   return ThemeData(
     brightness: brightness,
     colorScheme: cs,
-    useMaterial3: false,
+    useMaterial3: true,
     extensions: [appColors],
     scaffoldBackgroundColor: appColors.bg,
+    textTheme: textTheme,
+
+    // AppBar
     appBarTheme: AppBarTheme(
       backgroundColor: appColors.card,
       foregroundColor: appColors.text,
       elevation: 0,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
+      titleTextStyle: GoogleFonts.outfit(
+        color: appColors.text,
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+      ),
     ),
-    cardColor: appColors.card,
+
+    // Card
+    cardTheme: CardThemeData(
+      color: appColors.card,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: appColors.border, width: 1),
+      ),
+      margin: EdgeInsets.zero,
+    ),
+
+    // Drawer
     drawerTheme: DrawerThemeData(backgroundColor: appColors.bg),
+
+    // NavigationBar (Bottom Nav — Material 3)
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: appColors.card,
+      indicatorColor: accent.withValues(alpha: 0.15),
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      height: 68,
+      labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+      iconTheme: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return IconThemeData(color: accent, size: 24);
+        }
+        return IconThemeData(
+            color: appColors.textMuted.withValues(alpha: 0.8), size: 22);
+      }),
+      labelTextStyle: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return GoogleFonts.inter(
+              color: accent, fontSize: 11, fontWeight: FontWeight.w600);
+        }
+        return GoogleFonts.inter(
+            color: appColors.textMuted.withValues(alpha: 0.8), fontSize: 11);
+      }),
+    ),
+
+    // Switch
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith(
           (s) => s.contains(WidgetState.selected) ? accent : null),
@@ -174,29 +259,97 @@ ThemeData buildThemeData(Color accent, Brightness brightness) {
               ? accent.withValues(alpha: 0.4)
               : null),
     ),
+
+    // FAB
     floatingActionButtonTheme:
         FloatingActionButtonThemeData(backgroundColor: accent),
+
+    // ElevatedButton
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: accent,
         foregroundColor: Colors.black,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 0,
       ),
     ),
-    textTheme: (isDark
-            ? ThemeData.dark().textTheme
-            : ThemeData.light().textTheme)
-        .apply(
-      bodyColor: isDark ? Colors.white : const Color(0xFF1A1A2E),
-      displayColor: isDark ? Colors.white : const Color(0xFF1A1A2E),
+
+    // FilledButton (M3)
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        backgroundColor: accent,
+        foregroundColor: Colors.black,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
     ),
+
+    // Input
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: isDark ? const Color(0xFF0D1117) : const Color(0xFFE8EAF0),
-      labelStyle: TextStyle(color: isDark ? Colors.white54 : Colors.black54),
+      labelStyle:
+          TextStyle(color: isDark ? Colors.white54 : Colors.black54),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
       ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: accent, width: 1.5),
+      ),
+    ),
+
+    // Divider
+    dividerTheme: DividerThemeData(
+      color: appColors.border,
+      thickness: 1,
+      space: 1,
+    ),
+
+    // ListTile
+    listTileTheme: ListTileThemeData(
+      tileColor: Colors.transparent,
+      iconColor: appColors.textMuted,
+      textColor: appColors.text,
+    ),
+
+    // Chip
+    chipTheme: ChipThemeData(
+      backgroundColor: appColors.cardDark,
+      selectedColor: accent.withValues(alpha: 0.2),
+      labelStyle: GoogleFonts.inter(color: appColors.text, fontSize: 12),
+      side: BorderSide(color: appColors.border),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    ),
+
+    // SnackBar
+    snackBarTheme: SnackBarThemeData(
+      backgroundColor: appColors.cardDark,
+      contentTextStyle: GoogleFonts.inter(color: appColors.text),
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+
+    // BottomSheet
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: appColors.card,
+      modalBackgroundColor: appColors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+    ),
+
+    // Dialog
+    dialogTheme: DialogThemeData(
+      backgroundColor: appColors.card,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      titleTextStyle: GoogleFonts.outfit(
+          color: appColors.text, fontSize: 18, fontWeight: FontWeight.bold),
     ),
   );
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/backup_service.dart';
 import '../services/biometric_service.dart';
@@ -124,21 +125,27 @@ class _AyarlarPageState extends State<AyarlarPage>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: AppColors.of(context).bg,
+        backgroundColor: AppColors.of(context).card,
         elevation: 0,
-        centerTitle: true,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
         title: Text(
-          'AYARLAR',
-          style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 4,
-              color: AppColors.of(context).accent),
+          'Ayarlar',
+          style: GoogleFonts.outfit(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: AppColors.of(context).text,
+          ),
         ),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new,
+          icon: Icon(Icons.arrow_back_ios_new_rounded,
               size: 18, color: AppColors.of(context).textMuted),
           onPressed: () => Navigator.maybePop(context),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+              height: 1, color: AppColors.of(context).border),
         ),
       ),
       body: FadeTransition(

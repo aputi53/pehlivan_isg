@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:pehlivan_isg/services/database_service.dart';
 import 'package:pehlivan_isg/services/theme_service.dart';
-import 'package:pehlivan_isg/widgets/app_drawer.dart';
+import 'package:pehlivan_isg/widgets/app_empty_state.dart';
 
 class AksiyanPage extends StatefulWidget {
   const AksiyanPage({super.key});
@@ -276,11 +277,20 @@ class _AksiyanPageState extends State<AksiyanPage> {
     if (_loading) {
       return Scaffold(
         appBar: AppBar(
-            backgroundColor: c.card,
-            foregroundColor: c.text,
-            title: const Text("Görev Takibi")),
-        body: Center(
-            child: CircularProgressIndicator(color: c.accent)),
+          backgroundColor: c.card,
+          foregroundColor: c.text,
+          automaticallyImplyLeading: false,
+          title: Text(
+            'Görev Takibi',
+            style: GoogleFonts.outfit(
+                color: c.text, fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(1),
+            child: Container(height: 1, color: c.border),
+          ),
+        ),
+        body: const AppShimmerList(itemCount: 5),
       );
     }
 
@@ -322,20 +332,18 @@ class _AksiyanPageState extends State<AksiyanPage> {
         .toList();
 
     return Scaffold(
-      drawer: const AppDrawer(currentRoute: 'gorevler'),
       appBar: AppBar(
         backgroundColor: c.card,
         foregroundColor: c.text,
-        title: const Text(
-          "Görev Takibi",
-          style: TextStyle(fontWeight: FontWeight.bold),
+        automaticallyImplyLeading: false,
+        title: Text(
+          'Görev Takibi',
+          style: GoogleFonts.outfit(
+              color: c.text, fontSize: 20, fontWeight: FontWeight.bold),
         ),
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu_rounded),
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-            padding: const EdgeInsets.only(left: 16),
-          ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: c.border),
         ),
       ),
       floatingActionButton: FloatingActionButton(
@@ -345,26 +353,11 @@ class _AksiyanPageState extends State<AksiyanPage> {
         child: const Icon(Icons.add),
       ),
       body: _aksiyonlar.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.task_outlined,
-                      color: Colors.grey[700], size: 64),
-                  const SizedBox(height: 16),
-                  Text(
-                    "Henüz görev yok",
-                    style: TextStyle(
-                        color: Colors.grey[500], fontSize: 16),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    "+ ile yeni görev ekleyin",
-                    style: TextStyle(
-                        color: Colors.grey[700], fontSize: 12),
-                  ),
-                ],
-              ),
+          ? AppEmptyState(
+              icon: Icons.task_outlined,
+              title: 'Henüz görev yok',
+              subtitle:
+                  'Sağ alttaki + butonuna basarak\nilk görevinizi ekleyin',
             )
           : ListView(
               padding:

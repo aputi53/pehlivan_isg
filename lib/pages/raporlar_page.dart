@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:pehlivan_isg/services/database_service.dart';
 import 'package:pehlivan_isg/services/theme_service.dart';
 import 'package:pehlivan_isg/pages/gorsel_rapor_page.dart';
-import 'package:pehlivan_isg/widgets/app_drawer.dart';
+import 'package:pehlivan_isg/widgets/app_empty_state.dart';
 
 class RaporlarPage extends StatefulWidget {
   const RaporlarPage({super.key});
@@ -48,36 +49,30 @@ class _RaporlarPageState extends State<RaporlarPage>
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
     return Scaffold(
-      drawer: const AppDrawer(currentRoute: 'raporlar'),
       appBar: AppBar(
-        backgroundColor: c.bg,
-        title: const Text("Raporlar",
-            style: TextStyle(fontWeight: FontWeight.bold)),
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu_rounded),
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-            padding: const EdgeInsets.only(left: 16),
-          ),
+        backgroundColor: c.card,
+        title: Text(
+          'Raporlar',
+          style: GoogleFonts.outfit(
+              color: c.text, fontSize: 20, fontWeight: FontWeight.bold),
         ),
         bottom: TabBar(
           controller: _tabCtrl,
           isScrollable: true,
           tabAlignment: TabAlignment.start,
-          indicatorColor: Colors.amber,
-          labelColor: Colors.amber,
-          unselectedLabelColor: Colors.grey,
-          labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-          unselectedLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w400),
+          indicatorColor: c.accent,
+          labelColor: c.accent,
+          unselectedLabelColor: c.textMuted,
+          labelStyle: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
+          unselectedLabelStyle: GoogleFonts.inter(fontSize: 12),
           tabs: const [
-            Tab(text: "Denetim Özeti"),
-            Tab(text: "Görsel Raporlar"),
+            Tab(text: 'Denetim Özeti'),
+            Tab(text: 'Görsel Raporlar'),
           ],
         ),
       ),
       body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: Colors.amber))
+          ? const AppShimmerList(itemCount: 4, itemHeight: 80)
           : TabBarView(
               controller: _tabCtrl,
               children: [
@@ -331,17 +326,11 @@ class _GorselRaporlarTabState extends State<_GorselRaporlarTab> {
     final filtered = _filtered;
 
     if (widget.raporlar.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.camera_alt_outlined,
-                color: Colors.grey[700], size: 48),
-            const SizedBox(height: 12),
-            Text("Henüz görsel rapor oluşturulmadı",
-                style: TextStyle(color: Colors.grey[600], fontSize: 14)),
-          ],
-        ),
+      return const AppEmptyState(
+        icon: Icons.camera_alt_outlined,
+        title: 'Henüz görsel rapor yok',
+        subtitle: 'Saha Denetim ekranından\nfotoğraf çekip AI rapor oluşturun',
+        iconColor: Color(0xFFCE93D8),
       );
     }
 
@@ -367,13 +356,11 @@ class _GorselRaporlarTabState extends State<_GorselRaporlarTab> {
         ),
         if (filtered.isEmpty)
           Expanded(
-            child: Center(
-              child: Text(
-                _arama.isEmpty
-                    ? 'Henüz görsel rapor oluşturulmadı'
-                    : 'Sonuç bulunamadı',
-                style: TextStyle(color: Colors.grey[600], fontSize: 14),
-              ),
+            child: AppEmptyState(
+              icon: Icons.search_off_rounded,
+              title: 'Sonuç bulunamadı',
+              subtitle: '"$_arama" ile eşleşen rapor bulunamadı',
+              iconColor: Colors.orange,
             ),
           )
         else

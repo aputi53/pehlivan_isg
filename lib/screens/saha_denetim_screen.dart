@@ -4,7 +4,6 @@ import 'package:pehlivan_isg/utils/platform_utils.dart';
 import 'package:pehlivan_isg/services/database_service.dart';
 import 'package:pehlivan_isg/services/theme_service.dart';
 import 'package:pehlivan_isg/widgets/belgeler_widget.dart';
-import 'package:pehlivan_isg/widgets/app_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -541,20 +540,19 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
       key: _messengerKey,
       child: Scaffold(
       backgroundColor: colors.bg,
-      drawer: const AppDrawer(currentRoute: 'saha'),
       appBar: AppBar(
-        title: const Text("Saha Denetim",
-            style: TextStyle(fontWeight: FontWeight.bold)),
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu_rounded),
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-            padding: const EdgeInsets.only(left: 16),
-          ),
+        automaticallyImplyLeading: false,
+        title: Text(
+          'Saha Denetim',
+          style: TextStyle(fontWeight: FontWeight.bold, color: colors.text),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: colors.border),
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.add, color: colors.accent),
+            icon: Icon(Icons.add_rounded, color: colors.accent),
             onPressed: yeniGrupEklePopup,
             tooltip: "Yeni Grup",
           ),

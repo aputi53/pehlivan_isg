@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:pehlivan_isg/pages/firma_detay_page.dart';
 import 'package:pehlivan_isg/services/database_service.dart';
 import 'package:pehlivan_isg/services/theme_service.dart';
-import 'package:pehlivan_isg/widgets/app_drawer.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:pehlivan_isg/widgets/app_empty_state.dart';
 
 class TakvimPage extends StatefulWidget {
   const TakvimPage({super.key});
@@ -54,11 +55,17 @@ class _TakvimPageState extends State<TakvimPage> {
     if (_loading) {
       return Scaffold(
         appBar: AppBar(
-            backgroundColor: c.card,
-            foregroundColor: c.text,
-            title: const Text("Takvim")),
-        body: Center(
-            child: CircularProgressIndicator(color: c.accent)),
+          backgroundColor: c.card,
+          foregroundColor: c.text,
+          title: Text('Takvim / Ajanda',
+              style: GoogleFonts.outfit(
+                  color: c.text, fontSize: 20, fontWeight: FontWeight.bold)),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(1),
+            child: Container(height: 1, color: c.border),
+          ),
+        ),
+        body: const AppShimmerList(itemCount: 6),
       );
     }
 
@@ -85,24 +92,21 @@ class _TakvimPageState extends State<TakvimPage> {
     final tumBos = _etkinlikler.isEmpty;
 
     return Scaffold(
-      drawer: const AppDrawer(currentRoute: 'takvim'),
       appBar: AppBar(
         backgroundColor: c.card,
         foregroundColor: c.text,
-        title: const Text(
-          "Takvim / Ajanda",
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Text(
+          'Takvim / Ajanda',
+          style: GoogleFonts.outfit(
+              color: c.text, fontSize: 20, fontWeight: FontWeight.bold),
         ),
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu_rounded),
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-            padding: const EdgeInsets.only(left: 16),
-          ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: c.border),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_outlined),
+            icon: Icon(Icons.refresh_outlined, color: c.textMuted),
             onPressed: () {
               setState(() => _loading = true);
               _loadData();
@@ -111,26 +115,12 @@ class _TakvimPageState extends State<TakvimPage> {
         ],
       ),
       body: tumBos
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.event_available,
-                      color: Colors.grey[700], size: 64),
-                  const SizedBox(height: 16),
-                  Text(
-                    "Yaklaşan son tarih yok",
-                    style: TextStyle(
-                        color: Colors.grey[500], fontSize: 16),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    "Firmalar → Çalışanlar bölümüne belge ekleyin",
-                    style: TextStyle(
-                        color: Colors.grey[700], fontSize: 12),
-                  ),
-                ],
-              ),
+          ? AppEmptyState(
+              icon: Icons.event_available_outlined,
+              title: 'Yaklaşan son tarih yok',
+              subtitle:
+                  'Firmalar → Çalışanlar bölümüne\neğitim veya muayene belgesi ekleyin',
+              iconColor: const Color(0xFF81C784),
             )
           : ListView(
               padding: const EdgeInsets.all(16),

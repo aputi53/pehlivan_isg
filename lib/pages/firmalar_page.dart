@@ -3,10 +3,11 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:pehlivan_isg/pages/firma_detay_page.dart';
 import 'package:pehlivan_isg/services/database_service.dart';
 import 'package:pehlivan_isg/services/theme_service.dart';
-import 'package:pehlivan_isg/widgets/app_drawer.dart';
+import 'package:pehlivan_isg/widgets/app_empty_state.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -586,35 +587,37 @@ class _FirmalarPageState extends State<FirmalarPage> {
     final filtered = _filtered;
     final colors = AppColors.of(context);
     return Scaffold(
-      drawer: const AppDrawer(currentRoute: 'firmalar'),
       appBar: AppBar(
         backgroundColor: colors.card,
         foregroundColor: colors.text,
-        title: const Text("Firmalar",
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu_rounded),
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-            padding: const EdgeInsets.only(left: 16),
+        automaticallyImplyLeading: false,
+        title: Text(
+          "Firmalar",
+          style: GoogleFonts.outfit(
+            color: colors.text,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
           ),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: colors.border),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.delete_sweep_outlined),
-            tooltip: "Tümünü Sil",
-            onPressed: _deleteAll,
-          ),
-          IconButton(
-            icon: const Icon(Icons.upload_file_outlined),
+            icon: Icon(Icons.upload_file_outlined, color: colors.textMuted),
             tooltip: "CSV Yükle",
             onPressed: _csvImport,
+          ),
+          IconButton(
+            icon: Icon(Icons.delete_sweep_outlined, color: colors.textMuted),
+            tooltip: "Tümünü Sil",
+            onPressed: _deleteAll,
           ),
         ],
       ),
       body: _loading
-          ? Center(
-              child: CircularProgressIndicator(color: colors.accent))
+          ? const AppShimmerList(itemCount: 6)
           : Column(
               children: [
                 Padding(
@@ -675,30 +678,17 @@ class _FirmalarPageState extends State<FirmalarPage> {
                 ),
                 Expanded(
                   child: filtered.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.business_outlined,
-                                  color: Colors.grey[700], size: 48),
-                              const SizedBox(height: 12),
-                              Text(
-                                _arama.isEmpty
-                                    ? "Henüz firma yok"
-                                    : "Sonuç bulunamadı",
-                                style: TextStyle(
-                                    color: Colors.grey[600], fontSize: 14),
-                              ),
-                              if (_arama.isEmpty) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  "Sağ alttaki + ile ekleyin",
-                                  style: TextStyle(
-                                      color: Colors.grey[700], fontSize: 12),
-                                ),
-                              ],
-                            ],
-                          ),
+                      ? AppEmptyState(
+                          icon: _arama.isEmpty
+                              ? Icons.business_outlined
+                              : Icons.search_off_rounded,
+                          title: _arama.isEmpty
+                              ? 'Henüz firma yok'
+                              : 'Sonuç bulunamadı',
+                          subtitle: _arama.isEmpty
+                              ? 'Sağ alttaki + butonuna basarak\nilk firmanızı ekleyin'
+                              : '"$_arama" ile eşleşen firma bulunamadı',
+                          iconColor: _arama.isEmpty ? null : Colors.orange,
                         )
                       : ListView.builder(
                           padding:

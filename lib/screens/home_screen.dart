@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui';
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -160,6 +161,9 @@ class _NavItem extends StatelessWidget {
     required this.onTap,
   });
 
+  static const _activeColor = Color(0xFF4FC3F7);
+  static const _inactiveColor = Color(0xFFB0BEC5);
+
   @override
   Widget build(BuildContext context) {
     return Expanded(
@@ -169,39 +173,22 @@ class _NavItem extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeInOut,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-              decoration: BoxDecoration(
-                color: selected
-                    ? colors.accent.withValues(alpha: 0.15)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: Icon(
-                  selected ? selectedIcon : icon,
-                  key: ValueKey(selected),
-                  color: selected
-                      ? colors.accent
-                      : colors.textMuted.withValues(alpha: 0.75),
-                  size: 22,
-                ),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                selected ? selectedIcon : icon,
+                key: ValueKey(selected),
+                color: selected ? _activeColor : _inactiveColor,
+                size: 22,
               ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 3),
             AnimatedDefaultTextStyle(
               duration: const Duration(milliseconds: 220),
               style: GoogleFonts.inter(
-                color: selected
-                    ? colors.accent
-                    : colors.textMuted.withValues(alpha: 0.75),
+                color: selected ? _activeColor : _inactiveColor,
                 fontSize: 10.5,
-                fontWeight:
-                    selected ? FontWeight.w600 : FontWeight.normal,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
               ),
               child: Text(
                 label,
@@ -282,9 +269,10 @@ class _DashboardPageState extends State<_DashboardPage>
 
   String get _selamlama {
     final h = DateTime.now().hour;
-    if (h >= 5 && h < 12) return 'Günaydın';
-    if (h >= 12 && h < 18) return 'İyi Günler';
-    return 'İyi Akşamlar';
+    if (h >= 5 && h < 12) return 'Günaydın,';
+    if (h >= 12 && h < 18) return 'Merhaba,';
+    if (h >= 18 && h < 22) return 'İyi Akşamlar,';
+    return 'İyi Geceler,';
   }
 
   @override
@@ -293,6 +281,10 @@ class _DashboardPageState extends State<_DashboardPage>
     final colors = AppColors.of(context);
     return Scaffold(
       backgroundColor: colors.bg,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(175),
+        child: _buildFixedHeader(colors),
+      ),
       body: RefreshIndicator(
         color: colors.accent,
         backgroundColor: colors.card,
@@ -300,12 +292,26 @@ class _DashboardPageState extends State<_DashboardPage>
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            _buildSliverAppBar(colors),
+            // Header altına düşen yumuşak gölge geçiş alanı
+            SliverToBoxAdapter(
+              child: Container(
+                height: 20,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      const Color(0xFF4FC3F7).withValues(alpha: 0.07),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  // ── STAT KARTLARI ──────────────────────────────
                   _isLoading
                       ? _ShimmerStats(colors: colors)
                       : _StatsRow(
@@ -320,9 +326,7 @@ class _DashboardPageState extends State<_DashboardPage>
                           ),
                           onTapGorev: () => widget.onSwitchTab(3),
                         ),
-                  const SizedBox(height: 24),
-
-                  // ── AKSİYON GRAFİĞİ (veri varsa) ─────────────
+                  const SizedBox(height: 16),
                   if (!_isLoading && _toplamGorev > 0) ...[
                     _AksiyanGrafigi(
                       tamamlanan: _toplamGorev - _bekleyenGorev,
@@ -330,16 +334,12 @@ class _DashboardPageState extends State<_DashboardPage>
                       toplam: _toplamGorev,
                       colors: colors,
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
                   ],
-
-                  // ── HIZLI ERİŞİM ───────────────────────────────
                   _SectionTitle(title: 'HIZLI ERİŞİM', colors: colors),
                   const SizedBox(height: 12),
                   _buildQuickGrid(colors),
                   const SizedBox(height: 24),
-
-                  // ── AI ASISTAN KARTI ───────────────────────────
                   _AiAsistanKart(
                     onTap: () => Navigator.push(
                       context,
@@ -355,242 +355,214 @@ class _DashboardPageState extends State<_DashboardPage>
     );
   }
 
-  // ── Collapsing AppBar ──────────────────────────────────────────
-  Widget _buildSliverAppBar(AppColors colors) {
-    return SliverAppBar(
-      pinned: true,
-      floating: false,
-      expandedHeight: 130,
-      backgroundColor: colors.card,
-      surfaceTintColor: Colors.transparent,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      // Küçük AppBar (pinned durum)
-      title: Row(
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                  color: colors.accent.withValues(alpha: 0.4), width: 1.2),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(7),
-              child: Image.asset(
-                'assets/ana ekran logo.png',
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => Icon(
-                    Icons.shield_outlined,
-                    color: colors.accent,
-                    size: 18),
-              ),
-            ),
-          ),
-          const SizedBox(width: 9),
-          Text(
-            'PehlivanİSG',
-            style: GoogleFonts.outfit(
-              color: colors.accent,
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        IconButton(
-          icon: Icon(Icons.refresh_rounded,
-              color: colors.textMuted, size: 20),
-          onPressed: _loadStats,
-          tooltip: 'Yenile',
-        ),
-      ],
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Container(height: 1, color: colors.border),
-      ),
-      // Açılır başlık (expanded durum)
-      flexibleSpace: FlexibleSpaceBar(
-        collapseMode: CollapseMode.pin,
-        background: _buildHeader(colors),
-      ),
-    );
-  }
+  // ── Sabit Header — Glassmorphism ─────────────────────────────
+  Widget _buildFixedHeader(AppColors colors) {
+    const lightBlue = Color(0xFF4FC3F7);
+    const softBlue = Color(0xFF81D4FA); // İSG yazısı için yumuşatılmış mavi
+    const teal = Color(0xFF26C6DA);
 
-  Widget _buildHeader(AppColors colors) {
-    final isDark = colors.bg == const Color(0xFF0D1117);
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: isDark
-              ? [const Color(0xFF161B22), const Color(0xFF1C2333)]
-              : [Colors.white, const Color(0xFFEEF1F5)],
+          colors: [Color(0xFF0A1428), Color(0xFF0E1E38), Color(0xFF122545)],
+        ),
+        border: Border(
+          bottom: BorderSide(
+            color: lightBlue.withValues(alpha: 0.38),
+            width: 1.2,
+          ),
         ),
       ),
-      child: Stack(
-        children: [
-          // Arka plan dekorasyon
-          Positioned(
-            right: -30,
-            bottom: -30,
-            child: Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: colors.accent.withValues(alpha: 0.05),
-              ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+          // DecoratedBox: shadow ClipRRect dışında çizilir, header içinde kalır
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: lightBlue.withValues(alpha: 0.18),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                  spreadRadius: -2,
+                ),
+                BoxShadow(
+                  color: teal.withValues(alpha: 0.08),
+                  blurRadius: 40,
+                  offset: const Offset(0, 10),
+                  spreadRadius: 0,
+                ),
+              ],
             ),
-          ),
-          Positioned(
-            right: 30,
-            bottom: -50,
-            child: Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: colors.accent.withValues(alpha: 0.04),
-              ),
-            ),
-          ),
-          // İçerik
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Row(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 13,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.06),
+                        Colors.white.withValues(alpha: 0.03),
+                        lightBlue.withValues(alpha: 0.05),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.22),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Logo
-                      Container(
-                        width: 54,
-                        height: 54,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: colors.accent.withValues(alpha: 0.5),
-                            width: 1.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: colors.accent.withValues(alpha: 0.22),
-                              blurRadius: 14,
-                              spreadRadius: 1,
-                            ),
-                          ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.asset(
-                            'assets/ana ekran logo.png',
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) => Icon(
-                                Icons.shield_outlined,
-                                color: colors.accent,
-                                size: 26),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      // Greeting
+                      // ── Sol: logo + marka + selamlama + isim ──
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
+                            Row(
+                              children: [
+                                // Kalkan logosu %15 büyütüldü (48→55)
+                                SizedBox(
+                                  width: 55,
+                                  height: 55,
+                                  child: Image.asset(
+                                    'assets/logo yeni.png',
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (_, __, ___) => Icon(
+                                      Icons.shield_rounded,
+                                      color: lightBlue,
+                                      size: 34,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 7), // 10→7
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    RichText(
+                                      text: TextSpan(children: [
+                                        TextSpan(
+                                          text: 'Pehlivan',
+                                          style: GoogleFonts.outfit(
+                                            color: Colors.white,
+                                            fontSize: 17,
+                                            fontWeight: FontWeight.w700,
+                                            height: 1.2,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: 'İSG',
+                                          style: GoogleFonts.inter(
+                                            color: softBlue, // yumuşak mavi
+                                            fontSize: 17,
+                                            fontWeight: FontWeight.w900,
+                                            height: 1.2,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                      ]),
+                                    ),
+                                    Text(
+                                      'Yönetim Sistemi',
+                                      style: GoogleFonts.inter(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.78),
+                                        fontSize: 12.5,
+                                        letterSpacing: 0.2,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 13),
                             Text(
                               _selamlama,
                               style: GoogleFonts.inter(
-                                color: colors.textMuted,
-                                fontSize: 13,
+                                color: Colors.white.withValues(alpha: 0.78),
+                                fontSize: 12.5,
+                                letterSpacing: 0.1,
                               ),
                             ),
-                            const SizedBox(height: 2),
+                            const SizedBox(height: 1),
                             Text(
                               _kullaniciAdi.isNotEmpty
                                   ? _kullaniciAdi
-                                  : 'Hoş Geldiniz',
+                                  : 'Abdurrahman Pehlivan',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.outfit(
-                                color: colors.text,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: -0.3,
+                                color: Colors.white.withValues(alpha: 0.9),
+                                fontSize: 15.5,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: -0.2,
                               ),
-                            ),
-                            const SizedBox(height: 3),
-                            Row(
-                              children: [
-                                Container(
-                                  width: 6,
-                                  height: 6,
-                                  decoration: const BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Color(0xFF4CAF50),
-                                  ),
-                                ),
-                                const SizedBox(width: 5),
-                                Text(
-                                  'İSG Yönetim Sistemi',
-                                  style: GoogleFonts.inter(
-                                    color: colors.accent,
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
                             ),
                           ],
                         ),
                       ),
-                      // Profil avatar
+                      const SizedBox(width: 12),
+                      // ── Sağ: avatar ────────────────────────────
                       GestureDetector(
                         onTap: () => Navigator.push(
                           context,
                           _fadeRoute(const ProfilPage()),
                         ),
                         child: Container(
+                          padding: const EdgeInsets.all(2),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(
-                              color: colors.accent.withValues(alpha: 0.4),
-                              width: 2,
-                            ),
+                            border: Border.all(color: teal, width: 1),
                             boxShadow: [
                               BoxShadow(
-                                color: colors.accent.withValues(alpha: 0.18),
-                                blurRadius: 10,
+                                color: lightBlue.withValues(alpha: 0.22),
+                                blurRadius: 18,
+                                spreadRadius: 2,
+                              ),
+                              BoxShadow(
+                                color: teal.withValues(alpha: 0.12),
+                                blurRadius: 32,
+                                spreadRadius: 6,
                               ),
                             ],
                           ),
                           child: CircleAvatar(
                             radius: 27,
                             backgroundColor:
-                                colors.accent.withValues(alpha: 0.12),
+                                lightBlue.withValues(alpha: 0.15),
                             backgroundImage: _profileImageBase64 != null
                                 ? MemoryImage(
                                     base64Decode(_profileImageBase64!))
                                 : null,
                             child: _profileImageBase64 == null
                                 ? Icon(Icons.person_outline,
-                                    color: colors.accent, size: 26)
+                                    color: lightBlue, size: 25)
                                 : null,
                           ),
                         ),
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -673,43 +645,44 @@ class _StatsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _AnimatedStatCard(
-            icon: Icons.business_rounded,
-            color: const Color(0xFF4FC3F7),
-            value: firmaCount,
-            label: 'Firma',
-            colors: colors,
-            onTap: onTapFirma,
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: _AnimatedStatCard(
+              icon: Icons.business_rounded,
+              color: const Color(0xFF4FC3F7),
+              value: firmaCount,
+              label: 'Firma',
+              colors: colors,
+              onTap: onTapFirma,
+            ),
           ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _AnimatedStatCard(
-            icon: Icons.warning_rounded,
-            color: surenDolan > 0 ? const Color(0xFFFFB74D) : const Color(0xFF4CAF50),
-            value: surenDolan,
-            label: '30 Gün\nUyarı',
-            colors: colors,
-            onTap: onTapSuren,
+          const SizedBox(width: 10),
+          Expanded(
+            child: _AnimatedStatCard(
+              icon: Icons.warning_rounded,
+              color: const Color(0xFFFFB74D),
+              value: surenDolan,
+              label: '30 Gün\nUyarı',
+              colors: colors,
+              onTap: onTapSuren,
+            ),
           ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _AnimatedStatCard(
-            icon: Icons.task_alt_rounded,
-            color: bekleyenGorev > 0
-                ? colors.accent
-                : const Color(0xFF4CAF50),
-            value: bekleyenGorev,
-            label: 'Bekleyen\nGörev',
-            colors: colors,
-            onTap: onTapGorev,
+          const SizedBox(width: 10),
+          Expanded(
+            child: _AnimatedStatCard(
+              icon: Icons.task_alt_rounded,
+              color: const Color(0xFFCE93D8),
+              value: bekleyenGorev,
+              label: 'Bekleyen\nGörev',
+              colors: colors,
+              onTap: onTapGorev,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -736,7 +709,7 @@ class _AnimatedStatCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
         decoration: BoxDecoration(
           color: colors.card,
           borderRadius: BorderRadius.circular(18),
@@ -755,15 +728,16 @@ class _AnimatedStatCard extends StatelessWidget {
           ],
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.start,
+          mainAxisSize: MainAxisSize.max,
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(9),
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
+                color: color.withValues(alpha: 0.22),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, color: color, size: 18),
+              child: Icon(icon, color: Colors.white, size: 18),
             ),
             const SizedBox(height: 10),
             TweenAnimationBuilder<double>(
@@ -780,7 +754,7 @@ class _AnimatedStatCard extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 5),
+            const Spacer(),
             Text(
               label,
               textAlign: TextAlign.center,
@@ -1152,34 +1126,38 @@ class _AiAsistanKart extends StatelessWidget {
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFF3B1F91), Color(0xFF6C3EE8), Color(0xFF9562FF)],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
+            colors: [Color(0xFF0F0635), Color(0xFF1C0D52), Color(0xFF3A2080)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: const Color(0xFF7C4DFF).withValues(alpha: 0.18),
+            width: 1,
+          ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF7C4DFF).withValues(alpha: 0.4),
-              blurRadius: 28,
-              offset: const Offset(0, 10),
+              color: const Color(0xFF5530C0).withValues(alpha: 0.10),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(14),
+                color: Colors.white.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(Icons.auto_awesome_rounded,
-                  color: Colors.white, size: 28),
+                  color: Colors.white, size: 18),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 11),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1187,46 +1165,50 @@ class _AiAsistanKart extends StatelessWidget {
                   Text(
                     'AI İSG Asistanı',
                     style: GoogleFonts.outfit(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                      color: Colors.white.withValues(alpha: 0.90),
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Text(
-                    'Kanun, yönetmelik ve risk değerlendirmesi için',
+                    'Kanun, yönetmelik ve risk değerlendirmesi',
                     style: GoogleFonts.inter(
-                      color: Colors.white.withValues(alpha: 0.82),
-                      fontSize: 11.5,
+                      color: Colors.white.withValues(alpha: 0.50),
+                      fontSize: 10.5,
                     ),
                   ),
                 ],
               ),
             ),
+            const SizedBox(width: 8),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(20),
+                color: Colors.white.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.14),
+                  width: 1,
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    width: 7,
-                    height: 7,
+                    width: 6,
+                    height: 6,
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Color(0xFF69FF47),
+                      color: Color(0xFF52FF33),
                     ),
                   ),
-                  const SizedBox(width: 5),
+                  const SizedBox(width: 4),
                   Text(
                     'Aktif',
                     style: GoogleFonts.inter(
-                      color: Colors.white.withValues(alpha: 0.9),
-                      fontSize: 11,
+                      color: Colors.white.withValues(alpha: 0.82),
+                      fontSize: 10,
                       fontWeight: FontWeight.w600,
                     ),
                   ),

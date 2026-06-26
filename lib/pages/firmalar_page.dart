@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:archive/archive_io.dart';
+import 'package:excel/excel.dart' hide Border;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -393,6 +395,212 @@ class _FirmalarPageState extends State<FirmalarPage> {
     );
   }
 
+  Future<void> _isgKatipImport() async {
+    if (!mounted) return;
+    // Önce seçenek sun: Excel toplu veya tek firma güncelle
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _IsgKatipSecenekSheet(
+        onExcel: () async {
+          await _isgKatipExcelImport();
+        },
+        onTekFirma: () async {
+          if (!mounted) return;
+          await showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (_) => _IsgKatipImportSheet(
+              firmalar: _firmalar,
+              onKayit: () => _loadData(),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // Excel/CSV'yi parse eder → uzman seçim ekranı gösterir → seçilen uzmanların firmalarını aktar
+  Future<void> _isgKatipExcelImport() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['xlsx', 'xls', 'csv'],
+    );
+    if (result == null || result.files.single.path == null) return;
+    if (!mounted) return;
+
+    final path = result.files.single.path!;
+    final ext = path.toLowerCase().split('.').last;
+    List<List<String>> tumSatirlar = [];
+
+    try {
+      if (ext == 'csv' || ext == 'txt') {
+        final bytes = File(path).readAsBytesSync();
+        String content;
+        try { content = utf8.decode(bytes); } catch (_) { content = latin1.decode(bytes); }
+        if (content.startsWith('﻿')) content = content.substring(1);
+        final lines = content.split('\n').map((l) => l.trimRight()).toList();
+        final sep = lines.first.contains(';') ? ';' : ',';
+        for (int i = 1; i < lines.length; i++) {
+          final line = lines[i].trim();
+          if (line.isEmpty) continue;
+          final cols = line.split(sep).map((c) => c.replaceAll('"', '').trim()).toList();
+          if (cols.isNotEmpty && cols[0].isNotEmpty) tumSatirlar.add(cols);
+        }
+      } else {
+        final rawBytes = File(path).readAsBytesSync();
+        final bytes = _patchXlsxStyles(rawBytes);
+        final excel = Excel.decodeBytes(bytes);
+        final sheetNames = excel.tables.keys.toList();
+        if (sheetNames.isEmpty) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Excel dosyasında sayfa bulunamadı')),
+            );
+          }
+          return;
+        }
+        final sheet = excel.tables[sheetNames.first];
+        if (sheet == null) return;
+        final rows = sheet.rows;
+        for (int i = 1; i < rows.length; i++) {
+          final row = rows[i];
+          if (row.isEmpty) continue;
+          final cols = row.map((c) {
+            final v = c?.value;
+            if (v == null) return '';
+            return v.toString().trim();
+          }).toList();
+          if (cols.isNotEmpty && cols[0].isNotEmpty) tumSatirlar.add(cols);
+        }
+      }
+    } catch (e, st) {
+      debugPrint('KATIP_IMPORT_ERROR: $e\n$st');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Dosya okunurken hata: $e'),
+              backgroundColor: Colors.redAccent),
+        );
+      }
+      return;
+    }
+
+    if (tumSatirlar.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Dosyada veri bulunamadı')),
+        );
+      }
+      return;
+    }
+
+    // Benzersiz uzmanları çıkar (col[3] = uzman isim, col[4] = belge no)
+    final Map<String, List<List<String>>> uzmanMap = {};
+    for (final cols in tumSatirlar) {
+      final uzmanIsim = cols.length > 3 ? cols[3].trim() : '';
+      final key = uzmanIsim.isEmpty ? '(Uzman Belirtilmemiş)' : uzmanIsim;
+      uzmanMap.putIfAbsent(key, () => []).add(cols);
+    }
+
+    if (!mounted) return;
+
+    // Uzman seçim sheet'ini göster
+    final secilen = await showModalBottomSheet<List<String>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _UzmanSecimSheet(uzmanMap: uzmanMap),
+    );
+
+    if (secilen == null || secilen.isEmpty || !mounted) return;
+
+    // Seçilen uzmanların satırlarını topla
+    final aktarilacak = <List<String>>[];
+    for (final uzman in secilen) {
+      aktarilacak.addAll(uzmanMap[uzman] ?? []);
+    }
+
+    int added = 0;
+    int updated = 0;
+    for (final cols in aktarilacak) {
+      final r = await _katipRowImport(cols);
+      if (r == 'added') added++;
+      else if (r == 'updated') updated++;
+    }
+
+    await _loadData();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$added firma eklendi, $updated firma güncellendi'),
+          backgroundColor: const Color(0xFF1F2937),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
+  }
+
+  // SGK sicil no öncelikli firma eşleşmesi ile ISG-Katip satırını DB'ye kaydeder.
+  // Sütun sırası: 0=firma isim, 1=SGK no, 2=tehlike sınıfı, 3=uzman isim,
+  //   4=uzman belge no, 5=hekim isim, 6=hekim belge no, 7=sertifika no,
+  //   8=telefon, 9=mail
+  Future<String> _katipRowImport(List<String> cols) async {
+    final isim = cols[0].trim();
+    if (isim.isEmpty) return 'skip';
+
+    final sgkNo = cols.length > 1 ? cols[1].trim() : '';
+    final tehlikeSinifi = cols.length > 2 ? cols[2].trim() : '';
+    final uzmanIsim = cols.length > 3 ? cols[3].trim() : '';
+    final uzmanBelgeNo = cols.length > 4 ? cols[4].trim() : '';
+    final hekimIsim = cols.length > 5 ? cols[5].trim() : '';
+    final hekimBelgeNo = cols.length > 6 ? cols[6].trim() : '';
+    final katipSertNo = cols.length > 7 ? cols[7].trim() : '';
+    final telefon = cols.length > 8 ? cols[8].trim() : '';
+    final mail = cols.length > 9 ? cols[9].trim() : '';
+
+    // 1. Önce SGK sicil no ile eşleştir (güvenilir kimlik)
+    Map<String, dynamic>? mevcut;
+    if (sgkNo.isNotEmpty) {
+      mevcut = await DatabaseService.getFirmaBySgkNo(sgkNo);
+    }
+    // 2. SGK bulunamazsa isimle dene (yedek)
+    if (mevcut == null) {
+      mevcut = _firmalar.where((f) =>
+          (f['isim'] as String).toLowerCase().trim() ==
+          isim.toLowerCase()).firstOrNull;
+    }
+
+    if (mevcut != null) {
+      await DatabaseService.updateFirmaKatipBilgi(
+        mevcut['id'] as int,
+        sgkNo: sgkNo.isNotEmpty ? sgkNo : null,
+        tehlikeSinifi: tehlikeSinifi.isNotEmpty ? tehlikeSinifi : null,
+        uzmanIsim: uzmanIsim.isNotEmpty ? uzmanIsim : null,
+        uzmanBelgeNo: uzmanBelgeNo.isNotEmpty ? uzmanBelgeNo : null,
+        hekimIsim: hekimIsim.isNotEmpty ? hekimIsim : null,
+        hekimBelgeNo: hekimBelgeNo.isNotEmpty ? hekimBelgeNo : null,
+        katipSertifikaNo: katipSertNo.isNotEmpty ? katipSertNo : null,
+      );
+      return 'updated';
+    } else {
+      final firmaId = await DatabaseService.insertFirmaStandalone(isim, telefon, mail);
+      await DatabaseService.updateFirmaKatipBilgi(
+        firmaId,
+        sgkNo: sgkNo.isNotEmpty ? sgkNo : null,
+        tehlikeSinifi: tehlikeSinifi.isNotEmpty ? tehlikeSinifi : null,
+        uzmanIsim: uzmanIsim.isNotEmpty ? uzmanIsim : null,
+        uzmanBelgeNo: uzmanBelgeNo.isNotEmpty ? uzmanBelgeNo : null,
+        hekimIsim: hekimIsim.isNotEmpty ? hekimIsim : null,
+        hekimBelgeNo: hekimBelgeNo.isNotEmpty ? hekimBelgeNo : null,
+        katipSertifikaNo: katipSertNo.isNotEmpty ? katipSertNo : null,
+      );
+      return 'added';
+    }
+  }
+
   Future<void> _csvImport() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -605,6 +813,12 @@ class _FirmalarPageState extends State<FirmalarPage> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.account_balance_outlined,
+                color: Color(0xFF4FC3F7)),
+            tooltip: "ISG-Katip Aktar",
+            onPressed: _isgKatipImport,
+          ),
+          IconButton(
             icon: Icon(Icons.upload_file_outlined, color: colors.textMuted),
             tooltip: "CSV Yükle",
             onPressed: _csvImport,
@@ -815,10 +1029,597 @@ class _FirmalarPageState extends State<FirmalarPage> {
               ],
             ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'firmalar_fab',
         onPressed: _addFirmaSheet,
         backgroundColor: colors.accent,
         foregroundColor: Colors.black,
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+// xlsx dosyasındaki styles.xml'den numFmtId < 164 olan custom numFmt
+// girdilerini kaldırır (ISG-Katip Excel'inin hatalı numFmt kayıtlarını düzeltir).
+Uint8List _patchXlsxStyles(List<int> bytes) {
+  try {
+    final archive = ZipDecoder().decodeBytes(bytes);
+    final encoder = ZipEncoder();
+    final newArchive = Archive();
+
+    for (final file in archive) {
+      if (file.isFile && file.name == 'xl/styles.xml') {
+        var content = utf8.decode(file.content as List<int>, allowMalformed: true);
+        // numFmtId="0" ... numFmtId="163" olan custom <numFmt .../> satırlarını kaldır
+        content = content.replaceAllMapped(
+          RegExp(r'<numFmt[^>]+numFmtId="(\d+)"[^/]*/>', caseSensitive: false),
+          (m) {
+            final id = int.tryParse(m.group(1) ?? '') ?? 999;
+            return id < 164 ? '' : m.group(0)!;
+          },
+        );
+        final patched = utf8.encode(content);
+        newArchive.addFile(
+          ArchiveFile(file.name, patched.length, patched),
+        );
+      } else {
+        newArchive.addFile(file);
+      }
+    }
+
+    final encoded = encoder.encode(newArchive);
+    if (encoded == null) return Uint8List.fromList(bytes);
+    return Uint8List.fromList(encoded);
+  } catch (_) {
+    return Uint8List.fromList(bytes);
+  }
+}
+
+// ─── Uzman Seçim Sheet ───────────────────────────────────────────────────────
+
+class _UzmanSecimSheet extends StatefulWidget {
+  final Map<String, List<List<String>>> uzmanMap;
+  const _UzmanSecimSheet({required this.uzmanMap});
+
+  @override
+  State<_UzmanSecimSheet> createState() => _UzmanSecimSheetState();
+}
+
+class _UzmanSecimSheetState extends State<_UzmanSecimSheet> {
+  late Set<String> _secilen;
+
+  @override
+  void initState() {
+    super.initState();
+    _secilen = Set.from(widget.uzmanMap.keys);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+    final uzmanlar = widget.uzmanMap.keys.toList()..sort();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: c.card,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Uzman Seç',
+                    style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w700, color: c.text, fontSize: 16)),
+                Text(
+                    '${uzmanlar.length} uzman bulundu — aktarmak istediklerinizi seçin',
+                    style: GoogleFonts.inter(fontSize: 11, color: c.textMuted)),
+              ]),
+            ),
+            TextButton(
+              onPressed: () => setState(() {
+                if (_secilen.length == uzmanlar.length) {
+                  _secilen.clear();
+                } else {
+                  _secilen = Set.from(uzmanlar);
+                }
+              }),
+              child: Text(
+                _secilen.length == uzmanlar.length ? 'Hiçbirini Seçme' : 'Hepsini Seç',
+                style: GoogleFonts.inter(
+                    fontSize: 12, color: const Color(0xFF4FC3F7)),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 16),
+          ConstrainedBox(
+            constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.4),
+            child: SingleChildScrollView(
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: uzmanlar.map((uzman) {
+                  final secili = _secilen.contains(uzman);
+                  final firmaAdet = widget.uzmanMap[uzman]?.length ?? 0;
+                  return FilterChip(
+                    selected: secili,
+                    onSelected: (v) => setState(() {
+                      if (v) _secilen.add(uzman); else _secilen.remove(uzman);
+                    }),
+                    label: Text(
+                      '$uzman ($firmaAdet firma)',
+                      style: GoogleFonts.inter(fontSize: 12),
+                    ),
+                    selectedColor: const Color(0xFF4FC3F7).withValues(alpha: 0.2),
+                    checkmarkColor: const Color(0xFF4FC3F7),
+                    backgroundColor: c.bg,
+                    side: BorderSide(
+                      color: secili ? const Color(0xFF4FC3F7) : c.border,
+                    ),
+                    labelStyle: GoogleFonts.inter(
+                      color: secili ? const Color(0xFF4FC3F7) : c.textMuted,
+                      fontWeight:
+                          secili ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _secilen.isEmpty
+                  ? null
+                  : () => Navigator.pop(context, _secilen.toList()),
+              icon: const Icon(Icons.download_rounded),
+              label: Text(
+                _secilen.isEmpty
+                    ? 'Uzman Seçin'
+                    : '${_secilen.fold(0, (s, k) => s + (widget.uzmanMap[k]?.length ?? 0))} firma aktar',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4FC3F7),
+                foregroundColor: Colors.black,
+                disabledBackgroundColor:
+                    const Color(0xFF4FC3F7).withValues(alpha: 0.3),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── ISG-Katip Seçenek Sheet ─────────────────────────────────────────────────
+
+class _IsgKatipSecenekSheet extends StatelessWidget {
+  final VoidCallback onExcel;
+  final VoidCallback onTekFirma;
+  const _IsgKatipSecenekSheet(
+      {required this.onExcel, required this.onTekFirma});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: c.card,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.account_balance_outlined,
+                color: Color(0xFF4FC3F7), size: 20),
+            const SizedBox(width: 8),
+            Text('ISG-Katip\'ten Aktar',
+                style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w700,
+                    color: c.text,
+                    fontSize: 16)),
+            const Spacer(),
+            IconButton(
+              icon: Icon(Icons.close_rounded, color: c.textMuted),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ]),
+          const SizedBox(height: 8),
+          Text('Veri aktarma yöntemini seçin',
+              style:
+                  GoogleFonts.inter(fontSize: 12, color: c.textMuted)),
+          const SizedBox(height: 20),
+          _option(
+            context,
+            icon: Icons.upload_file_outlined,
+            color: const Color(0xFF4FC3F7),
+            title: 'Excel ile Toplu Aktar',
+            subtitle:
+                'ISG-Katip\'ten indirdiğiniz Excel dosyasını yükleyin',
+            onTap: onExcel,
+          ),
+          const SizedBox(height: 12),
+          _option(
+            context,
+            icon: Icons.edit_outlined,
+            color: const Color(0xFFE8B84B),
+            title: 'Tek Firma Güncelle',
+            subtitle: 'Mevcut bir firmanın bilgilerini manuel girin',
+            onTap: onTekFirma,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _option(
+    BuildContext context, {
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    final c = AppColors.of(context);
+    return Material(
+      color: c.bg,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: () {
+          Navigator.pop(context);
+          onTap();
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w600,
+                          color: c.text,
+                          fontSize: 14)),
+                  const SizedBox(height: 2),
+                  Text(subtitle,
+                      style: GoogleFonts.inter(
+                          fontSize: 11, color: c.textMuted)),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded,
+                color: c.textMuted, size: 20),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── ISG-Katip Import Sheet ──────────────────────────────────────────────────
+
+class _IsgKatipImportSheet extends StatefulWidget {
+  final List<Map<String, dynamic>> firmalar;
+  final VoidCallback onKayit;
+  const _IsgKatipImportSheet(
+      {required this.firmalar, required this.onKayit});
+
+  @override
+  State<_IsgKatipImportSheet> createState() => _IsgKatipImportSheetState();
+}
+
+class _IsgKatipImportSheetState extends State<_IsgKatipImportSheet> {
+  int? _firmaId;
+  String? _tehlikeSinifi;
+  final _sgkNo = TextEditingController();
+  final _uzmanIsim = TextEditingController();
+  final _uzmanUnvan = TextEditingController();
+  final _uzmanBelgeNo = TextEditingController();
+  final _hekimIsim = TextEditingController();
+  final _hekimUnvan = TextEditingController();
+  final _hekimBelgeNo = TextEditingController();
+  final _katipSertNo = TextEditingController();
+  bool _saving = false;
+
+  static const _tehlikeler = ['AZ TEHLİKELİ', 'TEHLİKELİ', 'ÇOK TEHLİKELİ'];
+
+  @override
+  void dispose() {
+    _sgkNo.dispose();
+    _uzmanIsim.dispose();
+    _uzmanUnvan.dispose();
+    _uzmanBelgeNo.dispose();
+    _hekimIsim.dispose();
+    _hekimUnvan.dispose();
+    _hekimBelgeNo.dispose();
+    _katipSertNo.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+
+    InputDecoration dec(String label) => InputDecoration(
+          labelText: label,
+          labelStyle:
+              GoogleFonts.inter(fontSize: 12, color: c.textMuted),
+          filled: true,
+          fillColor: c.bg,
+          contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12, vertical: 10),
+          border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: c.border)),
+          enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: c.border)),
+          focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide:
+                  const BorderSide(color: Color(0xFF4FC3F7))),
+        );
+
+    return Container(
+      decoration: BoxDecoration(
+        color: c.card,
+        borderRadius:
+            const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('ISG-Katip\'ten Aktar',
+                          style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w700,
+                              color: c.text,
+                              fontSize: 16)),
+                      Text(
+                          'Firmaya ait uzman, hekim ve sertifika bilgilerini girin',
+                          style: GoogleFonts.inter(
+                              fontSize: 11, color: c.textMuted)),
+                    ]),
+              ),
+              IconButton(
+                icon: Icon(Icons.close_rounded, color: c.textMuted),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ]),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<int>(
+              value: _firmaId,
+              dropdownColor: c.card,
+              style: GoogleFonts.inter(color: c.text, fontSize: 13),
+              hint: Text('Firma seçin *',
+                  style: GoogleFonts.inter(
+                      color: c.textMuted, fontSize: 13)),
+              decoration: dec('Firma'),
+              items: widget.firmalar
+                  .map((f) => DropdownMenuItem<int>(
+                        value: f['id'] as int,
+                        child: Text(f['isim'] as String,
+                            style: GoogleFonts.inter(
+                                fontSize: 13, color: c.text)),
+                      ))
+                  .toList(),
+              onChanged: (v) {
+                if (v != null) {
+                  final firma = widget.firmalar.firstWhere((f) => f['id'] == v);
+                  final ts = (firma['tehlikeSinifi'] as String?) ?? '';
+                  setState(() {
+                    _firmaId = v;
+                    _tehlikeSinifi = _tehlikeler.contains(ts) ? ts : null;
+                  });
+                  _sgkNo.text = (firma['sgkNo'] as String?) ?? '';
+                  _uzmanIsim.text = (firma['uzmanIsim'] as String?) ?? '';
+                  _uzmanUnvan.text = (firma['uzmanUnvan'] as String?) ?? '';
+                  _uzmanBelgeNo.text = (firma['uzmanBelgeNo'] as String?) ?? '';
+                  _hekimIsim.text = (firma['hekimIsim'] as String?) ?? '';
+                  _hekimUnvan.text = (firma['hekimUnvan'] as String?) ?? '';
+                  _hekimBelgeNo.text = (firma['hekimBelgeNo'] as String?) ?? '';
+                  _katipSertNo.text = (firma['katipSertifikaNo'] as String?) ?? '';
+                } else {
+                  setState(() => _firmaId = null);
+                }
+              },
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _sgkNo,
+              style: GoogleFonts.inter(color: c.text, fontSize: 13),
+              decoration: dec('SGK İşyeri Sicil No'),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: _tehlikeSinifi,
+              dropdownColor: c.card,
+              style: GoogleFonts.inter(color: c.text, fontSize: 13),
+              hint: Text('Tehlike Sınıfı',
+                  style: GoogleFonts.inter(color: c.textMuted, fontSize: 13)),
+              decoration: dec('Tehlike Sınıfı'),
+              items: _tehlikeler
+                  .map((t) => DropdownMenuItem(
+                        value: t,
+                        child: Text(t,
+                            style: GoogleFonts.inter(
+                                fontSize: 13, color: c.text)),
+                      ))
+                  .toList(),
+              onChanged: (v) => setState(() => _tehlikeSinifi = v),
+            ),
+            const Divider(height: 24),
+            Text('İŞ GÜVENLİĞİ UZMANI',
+                style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFFE8B84B),
+                    letterSpacing: 1)),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _uzmanIsim,
+              style: GoogleFonts.inter(color: c.text, fontSize: 13),
+              decoration: dec('Uzman Ad Soyad'),
+            ),
+            const SizedBox(height: 8),
+            Row(children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _uzmanUnvan,
+                  style: GoogleFonts.inter(color: c.text, fontSize: 13),
+                  decoration: dec('Sınıf'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextFormField(
+                  controller: _uzmanBelgeNo,
+                  style: GoogleFonts.inter(color: c.text, fontSize: 13),
+                  decoration: dec('Belge No'),
+                ),
+              ),
+            ]),
+            const Divider(height: 24),
+            Text('İŞYERİ HEKİMİ',
+                style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF4FC3F7),
+                    letterSpacing: 1)),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _hekimIsim,
+              style: GoogleFonts.inter(color: c.text, fontSize: 13),
+              decoration: dec('Hekim Ad Soyad'),
+            ),
+            const SizedBox(height: 8),
+            Row(children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _hekimUnvan,
+                  style: GoogleFonts.inter(color: c.text, fontSize: 13),
+                  decoration: dec('Unvan'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextFormField(
+                  controller: _hekimBelgeNo,
+                  style: GoogleFonts.inter(color: c.text, fontSize: 13),
+                  decoration: dec('Belge No'),
+                ),
+              ),
+            ]),
+            const Divider(height: 24),
+            Text('SERTİFİKA / SÖZLEŞME',
+                style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: c.textMuted,
+                    letterSpacing: 1)),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _katipSertNo,
+              style: GoogleFonts.inter(color: c.text, fontSize: 13),
+              decoration: dec('Katip Sertifika / Sözleşme No'),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _saving
+                    ? null
+                    : () async {
+                        if (_firmaId == null) return;
+                        setState(() => _saving = true);
+                        await DatabaseService.updateFirmaKatipBilgi(
+                          _firmaId!,
+                          sgkNo: _sgkNo.text.trim().isEmpty
+                              ? null
+                              : _sgkNo.text.trim(),
+                          tehlikeSinifi: _tehlikeSinifi,
+                          uzmanIsim: _uzmanIsim.text.trim().isEmpty
+                              ? null
+                              : _uzmanIsim.text.trim(),
+                          uzmanUnvan: _uzmanUnvan.text.trim().isEmpty
+                              ? null
+                              : _uzmanUnvan.text.trim(),
+                          uzmanBelgeNo: _uzmanBelgeNo.text.trim().isEmpty
+                              ? null
+                              : _uzmanBelgeNo.text.trim(),
+                          hekimIsim: _hekimIsim.text.trim().isEmpty
+                              ? null
+                              : _hekimIsim.text.trim(),
+                          hekimUnvan: _hekimUnvan.text.trim().isEmpty
+                              ? null
+                              : _hekimUnvan.text.trim(),
+                          hekimBelgeNo: _hekimBelgeNo.text.trim().isEmpty
+                              ? null
+                              : _hekimBelgeNo.text.trim(),
+                          katipSertifikaNo: _katipSertNo.text.trim().isEmpty
+                              ? null
+                              : _katipSertNo.text.trim(),
+                        );
+                        widget.onKayit();
+                        if (mounted) Navigator.pop(context);
+                      },
+                icon: const Icon(Icons.save_rounded),
+                label: Text(_saving ? 'Kaydediliyor...' : 'Kaydet',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4FC3F7),
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

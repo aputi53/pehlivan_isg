@@ -23,7 +23,7 @@ class DatabaseService {
 
     return openDatabase(
       path,
-      version: 5,
+      version: 7,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
       onOpen: (db) => db.execute('PRAGMA foreign_keys = ON'),
@@ -51,6 +51,15 @@ class DatabaseService {
         egitimGecerlilikYil INTEGER DEFAULT 1,
         muayeneGecerlilikYil INTEGER DEFAULT 1,
         evrakGecerlilikYil INTEGER DEFAULT 1,
+        sgkNo TEXT,
+        tehlikeSinifi TEXT,
+        uzmanIsim TEXT,
+        uzmanUnvan TEXT,
+        uzmanBelgeNo TEXT,
+        hekimIsim TEXT,
+        hekimUnvan TEXT,
+        hekimBelgeNo TEXT,
+        katipSertifikaNo TEXT,
         FOREIGN KEY (grupId) REFERENCES gruplar(id) ON DELETE SET NULL
       )
     ''');
@@ -126,6 +135,63 @@ class DatabaseService {
         tamamlandi INTEGER NOT NULL DEFAULT 0,
         olusturmaTarihi TEXT NOT NULL,
         FOREIGN KEY (firmaId) REFERENCES firmalar(id) ON DELETE SET NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE sertifikalar (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        firmaId INTEGER NOT NULL,
+        sertifikaTuru TEXT NOT NULL,
+        tehlikeSinifi TEXT NOT NULL,
+        ozelKonu TEXT,
+        egitimTarihi TEXT NOT NULL,
+        egitimTarihi2 TEXT,
+        egitimSuresi INTEGER NOT NULL,
+        egitimTipi TEXT NOT NULL DEFAULT 'ILK',
+        egitimciIsim TEXT,
+        egitimciUnvan TEXT,
+        uzmanIsim TEXT,
+        uzmanUnvan TEXT,
+        hekimIsim TEXT,
+        hekimUnvan TEXT,
+        sertifikaNo TEXT,
+        imzaPath TEXT,
+        gecerlilikTarihi TEXT,
+        katilimcilar TEXT NOT NULL DEFAULT '[]',
+        olusturmaTarihi TEXT NOT NULL,
+        FOREIGN KEY (firmaId) REFERENCES firmalar(id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE egitim_katilim (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        firmaId INTEGER NOT NULL,
+        egitimTuru TEXT NOT NULL,
+        tehlikeSinifi TEXT,
+        ozelRiskler TEXT NOT NULL DEFAULT '[]',
+        egitimTarihi TEXT NOT NULL,
+        egitimSuresi INTEGER NOT NULL,
+        egitimciIsim TEXT,
+        egitimciUnvan TEXT,
+        hekimIsim TEXT,
+        hekimUnvan TEXT,
+        katilimcilar TEXT NOT NULL DEFAULT '[]',
+        olusturmaTarihi TEXT NOT NULL,
+        FOREIGN KEY (firmaId) REFERENCES firmalar(id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE personel_havuzu (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tip TEXT NOT NULL,
+        isim TEXT NOT NULL,
+        unvan TEXT,
+        belgeNo TEXT,
+        dipNo TEXT,
+        aktif INTEGER NOT NULL DEFAULT 1
       )
     ''');
 
@@ -215,6 +281,81 @@ class DatabaseService {
           tamamlandi INTEGER NOT NULL DEFAULT 0,
           olusturmaTarihi TEXT NOT NULL,
           FOREIGN KEY (firmaId) REFERENCES firmalar(id) ON DELETE SET NULL
+        )
+      ''');
+    }
+
+    if (oldVersion < 6) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS sertifikalar (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          firmaId INTEGER NOT NULL,
+          sertifikaTuru TEXT NOT NULL,
+          tehlikeSinifi TEXT NOT NULL,
+          ozelKonu TEXT,
+          egitimTarihi TEXT NOT NULL,
+          egitimSuresi INTEGER NOT NULL,
+          egitimTipi TEXT NOT NULL DEFAULT 'ILK',
+          egitimciIsim TEXT,
+          egitimciUnvan TEXT,
+          gecerlilikTarihi TEXT,
+          katilimcilar TEXT NOT NULL DEFAULT '[]',
+          olusturmaTarihi TEXT NOT NULL,
+          FOREIGN KEY (firmaId) REFERENCES firmalar(id) ON DELETE CASCADE
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS egitim_katilim (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          firmaId INTEGER NOT NULL,
+          egitimTuru TEXT NOT NULL,
+          tehlikeSinifi TEXT,
+          ozelRiskler TEXT NOT NULL DEFAULT '[]',
+          egitimTarihi TEXT NOT NULL,
+          egitimSuresi INTEGER NOT NULL,
+          egitimciIsim TEXT,
+          egitimciUnvan TEXT,
+          hekimIsim TEXT,
+          hekimUnvan TEXT,
+          katilimcilar TEXT NOT NULL DEFAULT '[]',
+          olusturmaTarihi TEXT NOT NULL,
+          FOREIGN KEY (firmaId) REFERENCES firmalar(id) ON DELETE CASCADE
+        )
+      ''');
+    }
+
+    if (oldVersion < 7) {
+      // firmalar: ISG-Katip ve personel alanları
+      await db.execute('ALTER TABLE firmalar ADD COLUMN sgkNo TEXT');
+      await db.execute('ALTER TABLE firmalar ADD COLUMN tehlikeSinifi TEXT');
+      await db.execute('ALTER TABLE firmalar ADD COLUMN uzmanIsim TEXT');
+      await db.execute('ALTER TABLE firmalar ADD COLUMN uzmanUnvan TEXT');
+      await db.execute('ALTER TABLE firmalar ADD COLUMN uzmanBelgeNo TEXT');
+      await db.execute('ALTER TABLE firmalar ADD COLUMN hekimIsim TEXT');
+      await db.execute('ALTER TABLE firmalar ADD COLUMN hekimUnvan TEXT');
+      await db.execute('ALTER TABLE firmalar ADD COLUMN hekimBelgeNo TEXT');
+      await db.execute('ALTER TABLE firmalar ADD COLUMN katipSertifikaNo TEXT');
+
+      // sertifikalar: 2. tarih, uzman/hekim, sertifika no, imza
+      await db.execute('ALTER TABLE sertifikalar ADD COLUMN egitimTarihi2 TEXT');
+      await db.execute('ALTER TABLE sertifikalar ADD COLUMN uzmanIsim TEXT');
+      await db.execute('ALTER TABLE sertifikalar ADD COLUMN uzmanUnvan TEXT');
+      await db.execute('ALTER TABLE sertifikalar ADD COLUMN hekimIsim TEXT');
+      await db.execute('ALTER TABLE sertifikalar ADD COLUMN hekimUnvan TEXT');
+      await db.execute('ALTER TABLE sertifikalar ADD COLUMN sertifikaNo TEXT');
+      await db.execute('ALTER TABLE sertifikalar ADD COLUMN imzaPath TEXT');
+
+      // personel havuzu: uzman ve hekimler listesi
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS personel_havuzu (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          tip TEXT NOT NULL,
+          isim TEXT NOT NULL,
+          unvan TEXT,
+          belgeNo TEXT,
+          dipNo TEXT,
+          aktif INTEGER NOT NULL DEFAULT 1
         )
       ''');
     }
@@ -333,6 +474,15 @@ class DatabaseService {
       'ziyaretTarihi': row['ziyaretTarihi'] != null
           ? DateTime.parse(row['ziyaretTarihi'] as String)
           : null,
+      'sgkNo': row['sgkNo'] ?? '',
+      'tehlikeSinifi': row['tehlikeSinifi'] ?? '',
+      'uzmanIsim': row['uzmanIsim'] ?? '',
+      'uzmanUnvan': row['uzmanUnvan'] ?? '',
+      'uzmanBelgeNo': row['uzmanBelgeNo'] ?? '',
+      'hekimIsim': row['hekimIsim'] ?? '',
+      'hekimUnvan': row['hekimUnvan'] ?? '',
+      'hekimBelgeNo': row['hekimBelgeNo'] ?? '',
+      'katipSertifikaNo': row['katipSertifikaNo'] ?? '',
     }).toList();
   }
 
@@ -379,6 +529,19 @@ class DatabaseService {
       'mail': mail,
       'durum': 'NORMAL',
     });
+  }
+
+  // SGK sicil no ile firma bul
+  static Future<Map<String, dynamic>?> getFirmaBySgkNo(String sgkNo) async {
+    if (sgkNo.isEmpty) return null;
+    final database = await db;
+    final rows = await database.query(
+      'firmalar',
+      where: 'sgkNo = ?',
+      whereArgs: [sgkNo.trim()],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : rows.first;
   }
 
   // Grupsuz firma oluştur (Firma Paneli için)
@@ -907,6 +1070,213 @@ class DatabaseService {
     final database = await db;
     await database.delete('aksiyonlar',
         where: 'id = ?', whereArgs: [id]);
+  }
+
+  // ─── SERTİFİKA MODÜLÜ ───────────────────────────────
+
+  static Future<List<Map<String, dynamic>>> getSertifikalar({int? firmaId}) async {
+    final database = await db;
+    final rows = firmaId != null
+        ? await database.query('sertifikalar',
+            where: 'firmaId = ?', whereArgs: [firmaId], orderBy: 'egitimTarihi DESC')
+        : await database.query('sertifikalar', orderBy: 'egitimTarihi DESC');
+
+    return rows.map((r) => {
+      ...r,
+      'egitimTarihi': DateTime.parse(r['egitimTarihi'] as String),
+      'egitimTarihi2': r['egitimTarihi2'] != null
+          ? DateTime.parse(r['egitimTarihi2'] as String)
+          : null,
+      'gecerlilikTarihi': r['gecerlilikTarihi'] != null
+          ? DateTime.parse(r['gecerlilikTarihi'] as String)
+          : null,
+      'olusturmaTarihi': DateTime.parse(r['olusturmaTarihi'] as String),
+      'katilimcilar': jsonDecode(r['katilimcilar'] as String) as List<dynamic>,
+    }).toList();
+  }
+
+  static Future<int> insertSertifika({
+    required int firmaId,
+    required String sertifikaTuru,
+    required String tehlikeSinifi,
+    String? ozelKonu,
+    required DateTime egitimTarihi,
+    DateTime? egitimTarihi2,
+    required int egitimSuresi,
+    String egitimTipi = 'ILK',
+    String? egitimciIsim,
+    String? egitimciUnvan,
+    String? uzmanIsim,
+    String? uzmanUnvan,
+    String? hekimIsim,
+    String? hekimUnvan,
+    String? sertifikaNo,
+    String? imzaPath,
+    DateTime? gecerlilikTarihi,
+    List<Map<String, dynamic>> katilimcilar = const [],
+  }) async {
+    final database = await db;
+    return database.insert('sertifikalar', {
+      'firmaId': firmaId,
+      'sertifikaTuru': sertifikaTuru,
+      'tehlikeSinifi': tehlikeSinifi,
+      'ozelKonu': ozelKonu,
+      'egitimTarihi': egitimTarihi.toIso8601String(),
+      'egitimTarihi2': egitimTarihi2?.toIso8601String(),
+      'egitimSuresi': egitimSuresi,
+      'egitimTipi': egitimTipi,
+      'egitimciIsim': egitimciIsim,
+      'egitimciUnvan': egitimciUnvan,
+      'uzmanIsim': uzmanIsim,
+      'uzmanUnvan': uzmanUnvan,
+      'hekimIsim': hekimIsim,
+      'hekimUnvan': hekimUnvan,
+      'sertifikaNo': sertifikaNo,
+      'imzaPath': imzaPath,
+      'gecerlilikTarihi': gecerlilikTarihi?.toIso8601String(),
+      'katilimcilar': jsonEncode(katilimcilar),
+      'olusturmaTarihi': DateTime.now().toIso8601String(),
+    });
+  }
+
+  static Future<void> updateSertifika(int id, Map<String, dynamic> fields) async {
+    final database = await db;
+    final data = Map<String, dynamic>.from(fields);
+    for (final key in ['egitimTarihi', 'egitimTarihi2', 'gecerlilikTarihi']) {
+      if (data[key] is DateTime) {
+        data[key] = (data[key] as DateTime).toIso8601String();
+      }
+    }
+    if (data['katilimcilar'] is List) {
+      data['katilimcilar'] = jsonEncode(data['katilimcilar']);
+    }
+    await database.update('sertifikalar', data, where: 'id = ?', whereArgs: [id]);
+  }
+
+  static Future<void> deleteSertifika(int id) async {
+    final database = await db;
+    await database.delete('sertifikalar', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // ─── PERSONEL HAVUZU ─────────────────────────────────
+
+  static Future<List<Map<String, dynamic>>> getPersonelHavuzu({String? tip}) async {
+    final database = await db;
+    final rows = tip != null
+        ? await database.query('personel_havuzu',
+            where: 'tip = ? AND aktif = 1', whereArgs: [tip], orderBy: 'isim COLLATE NOCASE ASC')
+        : await database.query('personel_havuzu',
+            where: 'aktif = 1', orderBy: 'tip ASC, isim COLLATE NOCASE ASC');
+    return rows.map((r) => Map<String, dynamic>.from(r)).toList();
+  }
+
+  static Future<int> insertPersonel({
+    required String tip,
+    required String isim,
+    String? unvan,
+    String? belgeNo,
+    String? dipNo,
+  }) async {
+    final database = await db;
+    return database.insert('personel_havuzu', {
+      'tip': tip,
+      'isim': isim,
+      'unvan': unvan,
+      'belgeNo': belgeNo,
+      'dipNo': dipNo,
+      'aktif': 1,
+    });
+  }
+
+  static Future<void> updatePersonel(int id, Map<String, dynamic> fields) async {
+    final database = await db;
+    await database.update('personel_havuzu', fields, where: 'id = ?', whereArgs: [id]);
+  }
+
+  static Future<void> deletePersonel(int id) async {
+    final database = await db;
+    await database.delete('personel_havuzu', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // ─── FİRMA ISG-KATİP BİLGİLERİ ──────────────────────
+
+  static Future<void> updateFirmaKatipBilgi(int firmaId, {
+    String? sgkNo,
+    String? tehlikeSinifi,
+    String? uzmanIsim,
+    String? uzmanUnvan,
+    String? uzmanBelgeNo,
+    String? hekimIsim,
+    String? hekimUnvan,
+    String? hekimBelgeNo,
+    String? katipSertifikaNo,
+  }) async {
+    final database = await db;
+    final data = <String, dynamic>{};
+    if (sgkNo != null) data['sgkNo'] = sgkNo;
+    if (tehlikeSinifi != null) data['tehlikeSinifi'] = tehlikeSinifi;
+    if (uzmanIsim != null) data['uzmanIsim'] = uzmanIsim;
+    if (uzmanUnvan != null) data['uzmanUnvan'] = uzmanUnvan;
+    if (uzmanBelgeNo != null) data['uzmanBelgeNo'] = uzmanBelgeNo;
+    if (hekimIsim != null) data['hekimIsim'] = hekimIsim;
+    if (hekimUnvan != null) data['hekimUnvan'] = hekimUnvan;
+    if (hekimBelgeNo != null) data['hekimBelgeNo'] = hekimBelgeNo;
+    if (katipSertifikaNo != null) data['katipSertifikaNo'] = katipSertifikaNo;
+    if (data.isEmpty) return;
+    await database.update('firmalar', data, where: 'id = ?', whereArgs: [firmaId]);
+  }
+
+  // ─── EĞİTİM KATILIM MODÜLÜ ──────────────────────────
+
+  static Future<List<Map<String, dynamic>>> getEgitimKatilimlar({int? firmaId}) async {
+    final database = await db;
+    final rows = firmaId != null
+        ? await database.query('egitim_katilim',
+            where: 'firmaId = ?', whereArgs: [firmaId], orderBy: 'egitimTarihi DESC')
+        : await database.query('egitim_katilim', orderBy: 'egitimTarihi DESC');
+
+    return rows.map((r) => {
+      ...r,
+      'egitimTarihi': DateTime.parse(r['egitimTarihi'] as String),
+      'olusturmaTarihi': DateTime.parse(r['olusturmaTarihi'] as String),
+      'ozelRiskler': jsonDecode(r['ozelRiskler'] as String) as List<dynamic>,
+      'katilimcilar': jsonDecode(r['katilimcilar'] as String) as List<dynamic>,
+    }).toList();
+  }
+
+  static Future<int> insertEgitimKatilim({
+    required int firmaId,
+    required String egitimTuru,
+    String? tehlikeSinifi,
+    List<String> ozelRiskler = const [],
+    required DateTime egitimTarihi,
+    required int egitimSuresi,
+    String? egitimciIsim,
+    String? egitimciUnvan,
+    String? hekimIsim,
+    String? hekimUnvan,
+    List<Map<String, dynamic>> katilimcilar = const [],
+  }) async {
+    final database = await db;
+    return database.insert('egitim_katilim', {
+      'firmaId': firmaId,
+      'egitimTuru': egitimTuru,
+      'tehlikeSinifi': tehlikeSinifi,
+      'ozelRiskler': jsonEncode(ozelRiskler),
+      'egitimTarihi': egitimTarihi.toIso8601String(),
+      'egitimSuresi': egitimSuresi,
+      'egitimciIsim': egitimciIsim,
+      'egitimciUnvan': egitimciUnvan,
+      'hekimIsim': hekimIsim,
+      'hekimUnvan': hekimUnvan,
+      'katilimcilar': jsonEncode(katilimcilar),
+      'olusturmaTarihi': DateTime.now().toIso8601String(),
+    });
+  }
+
+  static Future<void> deleteEgitimKatilim(int id) async {
+    final database = await db;
+    await database.delete('egitim_katilim', where: 'id = ?', whereArgs: [id]);
   }
 
   // ─── RAPORLAR MODÜLü ────────────────────────────────

@@ -6,6 +6,7 @@ import '../services/backup_service.dart';
 import '../services/biometric_service.dart';
 import '../services/theme_service.dart';
 import '../screens/security/change_pin_screen.dart';
+import 'personel_havuzu_page.dart';
 
 class AyarlarPage extends StatefulWidget {
   const AyarlarPage({super.key});
@@ -305,6 +306,24 @@ class _AyarlarPageState extends State<AyarlarPage>
                   title: 'Uygulama Hakkında',
                   subtitle: 'PehlivanİSG · © 2026',
                   onTap: _showAbout,
+                ),
+              ]),
+
+              const SizedBox(height: 22),
+
+              // ── PERSONEL HAVUZU ──────────────────────────────────────────
+              _sectionLabel('Personel Havuzu', Icons.badge_outlined),
+              const SizedBox(height: 10),
+              _settingsCard([
+                _navTile(
+                  icon: Icons.engineering_outlined,
+                  title: 'Uzmanlar & Hekimler',
+                  subtitle:
+                      'Sertifikalarda kullanmak için uzman ve hekim listesi',
+                  onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const PersonelHavuzuPage())),
                 ),
               ]),
 

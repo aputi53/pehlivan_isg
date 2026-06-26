@@ -80,7 +80,7 @@ class _AiAsistanPageState extends State<AiAsistanPage> {
   void _initChat() {
     final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
     final model = GenerativeModel(
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.5-flash',
       apiKey: apiKey,
       systemInstruction: Content.system(_systemPrompt),
     );
@@ -218,7 +218,7 @@ class _AiAsistanPageState extends State<AiAsistanPage> {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    'Gemini 2.5 Flash',
+                    'Gemini 3.5 Flash',
                     style:
                         TextStyle(color: colors.textMuted, fontSize: 10),
                   ),

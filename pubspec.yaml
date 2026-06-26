@@ -36,6 +36,7 @@ dependencies:
   sqflite_common_ffi: ^2.3.4
   path: ^1.9.0
   file_picker: ^8.1.2
+  excel: ^4.0.6
   flutter_local_notifications: ^18.0.0
   open_filex: ^4.7.0
   flutter_markdown: ^0.7.4

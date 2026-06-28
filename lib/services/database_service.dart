@@ -23,7 +23,7 @@ class DatabaseService {
 
     return openDatabase(
       path,
-      version: 7,
+      version: 10,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
       onOpen: (db) => db.execute('PRAGMA foreign_keys = ON'),
@@ -60,6 +60,7 @@ class DatabaseService {
         hekimUnvan TEXT,
         hekimBelgeNo TEXT,
         katipSertifikaNo TEXT,
+        adres TEXT,
         FOREIGN KEY (grupId) REFERENCES gruplar(id) ON DELETE SET NULL
       )
     ''');
@@ -195,6 +196,15 @@ class DatabaseService {
       )
     ''');
 
+    await db.execute('''
+      CREATE TABLE ziyaret_sync_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tip TEXT NOT NULL,
+        tarih TEXT NOT NULL,
+        firebaseTarih TEXT
+      )
+    ''');
+
     // Onboarding
     await db.insert('gruplar', {
       'grupAdi': 'ÖRNEK GRUP',
@@ -325,6 +335,18 @@ class DatabaseService {
       ''');
     }
 
+    if (oldVersion < 8) {
+      // Ziyaret senkronizasyon log tablosu
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS ziyaret_sync_log (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          tip TEXT NOT NULL,
+          tarih TEXT NOT NULL,
+          firebaseTarih TEXT
+        )
+      ''');
+    }
+
     if (oldVersion < 7) {
       // firmalar: ISG-Katip ve personel alanları
       await db.execute('ALTER TABLE firmalar ADD COLUMN sgkNo TEXT');
@@ -356,6 +378,21 @@ class DatabaseService {
           belgeNo TEXT,
           dipNo TEXT,
           aktif INTEGER NOT NULL DEFAULT 1
+        )
+      ''');
+    }
+
+    if (oldVersion < 9) {
+      await db.execute('ALTER TABLE firmalar ADD COLUMN adres TEXT');
+    }
+
+    if (oldVersion < 10) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS ziyaret_sync_log (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          tip TEXT NOT NULL,
+          tarih TEXT NOT NULL,
+          firebaseTarih TEXT
         )
       ''');
     }
@@ -513,6 +550,13 @@ class DatabaseService {
       'egitimGecerlilikYil': (row['egitimGecerlilikYil'] as int?) ?? 1,
       'muayeneGecerlilikYil': (row['muayeneGecerlilikYil'] as int?) ?? 1,
       'evrakGecerlilikYil': (row['evrakGecerlilikYil'] as int?) ?? 1,
+      'sgkNo': row['sgkNo'] ?? '',
+      'tehlikeSinifi': row['tehlikeSinifi'] ?? '',
+      'adres': row['adres'] ?? '',
+      'uzmanIsim': row['uzmanIsim'] ?? '',
+      'uzmanBelgeNo': row['uzmanBelgeNo'] ?? '',
+      'hekimIsim': row['hekimIsim'] ?? '',
+      'hekimBelgeNo': row['hekimBelgeNo'] ?? '',
       'notlar': notlar,
       'raporlar': raporlar,
       'belgeler': belgeler,
@@ -1295,5 +1339,185 @@ class DatabaseService {
       ozet[row['durum'] as String] = row['sayi'] as int;
     }
     return ozet;
+  }
+
+  // ─── ZİYARET SYNC ────────────────────────────────────
+
+  /// PC'den gelen gruplar JSON'unu import eder.
+  /// Mevcut grupları günceller, yenileri ekler, silmez.
+  /// Firma-grup eşleşmesini isim üzerinden yapar.
+  /// PC'den gelen firma listesini import eder.
+  /// Aynı isimde firma varsa telefon/mail günceller, yoksa yeni ekler.
+  static Future<Map<String, int>> syncFirmalar(List<dynamic> firmalarData) async {
+    final database = await db;
+    int ekleneSayisi = 0;
+    int guncelleneSayisi = 0;
+
+    int atlanaSayisi = 0;
+    for (final f in firmalarData) {
+      final isim = (f['unvan'] as String? ?? '').trim();
+      if (isim.isEmpty) { atlanaSayisi++; continue; }
+
+      final fields = <String, dynamic>{
+        'telefon': f['telefon'] as String? ?? '',
+        'mail': f['mail'] as String? ?? '',
+        'adres': f['adres'] as String? ?? '',
+        'sgkNo': f['sgkNo'] as String? ?? '',
+        'tehlikeSinifi': f['tehlikeSinifi'] as String? ?? '',
+        'uzmanIsim': f['uzmanIsim'] as String? ?? '',
+        'uzmanBelgeNo': f['uzmanBelgeNo'] as String? ?? '',
+        'hekimIsim': f['hekimIsim'] as String? ?? '',
+        'hekimBelgeNo': f['hekimBelgeNo'] as String? ?? '',
+      };
+
+      final mevcut = await database.query('firmalar',
+          where: 'isim = ?', whereArgs: [isim], limit: 1);
+
+      if (mevcut.isEmpty) {
+        final insertData = <String, dynamic>{
+          'grupId': null,
+          'isim': isim,
+          'durum': 'NORMAL',
+        };
+        insertData.addAll(fields);
+        await database.insert('firmalar', insertData);
+        ekleneSayisi++;
+      } else {
+        final updates = <String, dynamic>{};
+        fields.forEach((k, v) {
+          if ((v as String).isNotEmpty) updates[k] = v;
+        });
+        if (updates.isNotEmpty) {
+          await database.update('firmalar', updates,
+              where: 'isim = ?', whereArgs: [isim]);
+        }
+        guncelleneSayisi++;
+      }
+    }
+
+    await database.insert('ziyaret_sync_log', {
+      'tip': 'firmalar',
+      'tarih': DateTime.now().toIso8601String(),
+      'firebaseTarih': DateTime.now().toIso8601String(),
+    });
+
+    return {'eklenen': ekleneSayisi, 'guncellenen': guncelleneSayisi, 'atlanan': atlanaSayisi};
+  }
+
+  static Future<int> syncGruplar(List<dynamic> gruplarData) async {
+    final database = await db;
+    int degisimSayisi = 0;
+
+    for (final g in gruplarData) {
+      final grupAdi = g['grupAdi'] as String? ?? '';
+      if (grupAdi.isEmpty) continue;
+
+      // Var mı kontrol et
+      final mevcut = await database.query('gruplar',
+          where: 'grupAdi = ?', whereArgs: [grupAdi], limit: 1);
+
+      int grupId;
+      if (mevcut.isEmpty) {
+        grupId = await database.insert('gruplar', {
+          'grupAdi': grupAdi,
+          'tarih': DateTime.now().toIso8601String(),
+        });
+        degisimSayisi++;
+      } else {
+        grupId = mevcut.first['id'] as int;
+      }
+
+      // Firmaları eşleştir — yoksa ekle, varsa grupId güncelle
+      final firmalar = g['firmalar'] as List<dynamic>? ?? [];
+      for (final firmaIsim in firmalar) {
+        final isim = firmaIsim as String? ?? '';
+        if (isim.isEmpty) continue;
+        final mevcut = await database.query('firmalar',
+            where: 'isim = ?', whereArgs: [isim], limit: 1);
+        if (mevcut.isEmpty) {
+          await database.insert('firmalar', {
+            'grupId': grupId,
+            'isim': isim,
+            'telefon': '',
+            'mail': '',
+            'durum': 'NORMAL',
+          });
+          degisimSayisi++;
+        } else {
+          await database.update(
+            'firmalar',
+            {'grupId': grupId},
+            where: 'isim = ?',
+            whereArgs: [isim],
+          );
+        }
+      }
+    }
+
+    // Sync log
+    await database.insert('ziyaret_sync_log', {
+      'tip': 'gruplar',
+      'tarih': DateTime.now().toIso8601String(),
+      'firebaseTarih': DateTime.now().toIso8601String(),
+    });
+
+    return degisimSayisi;
+  }
+
+  /// PC'den gelen aylık plan JSON'unu import eder.
+  /// Her grubun tarih alanını günceller.
+  static Future<int> syncPlan(List<dynamic> planData, int yil, int ay) async {
+    final database = await db;
+    int guncellenenSayisi = 0;
+
+    for (final p in planData) {
+      final grupAdi = p['grupAdi'] as String? ?? '';
+      final gun = p['gun'] as int? ?? 0;
+      if (grupAdi.isEmpty || gun == 0) continue;
+
+      final tarih = DateTime(yil, ay, gun);
+
+      final guncellendi = await database.update(
+        'gruplar',
+        {'tarih': tarih.toIso8601String()},
+        where: 'grupAdi = ?',
+        whereArgs: [grupAdi],
+      );
+      if (guncellendi > 0) guncellenenSayisi++;
+    }
+
+    await database.insert('ziyaret_sync_log', {
+      'tip': 'plan_${yil}_${ay.toString().padLeft(2, '0')}',
+      'tarih': DateTime.now().toIso8601String(),
+      'firebaseTarih': DateTime.now().toIso8601String(),
+    });
+
+    return guncellenenSayisi;
+  }
+
+  /// Belirtilen ay için grupları getirir (tarih bu ayda olanlar)
+  static Future<List<Map<String, dynamic>>> getZiyaretPlani(int yil, int ay) async {
+    final database = await db;
+    final rows = await database.rawQuery('''
+      SELECT g.id, g.grupAdi, g.tarih,
+        (SELECT COUNT(*) FROM firmalar f WHERE f.grupId = g.id) as firmaSayisi
+      FROM gruplar g
+      WHERE strftime('%Y', g.tarih) = ? AND strftime('%m', g.tarih) = ?
+      ORDER BY g.tarih ASC
+    ''', [yil.toString(), ay.toString().padLeft(2, '0')]);
+
+    return rows.map((r) => Map<String, dynamic>.from(r)).toList();
+  }
+
+  static Future<Map<String, dynamic>?> getLastSyncLog(String tip) async {
+    final database = await db;
+    final rows = await database.query(
+      'ziyaret_sync_log',
+      where: 'tip LIKE ?',
+      whereArgs: ['$tip%'],
+      orderBy: 'id DESC',
+      limit: 1,
+    );
+    return rows.isNotEmpty ? Map<String, dynamic>.from(rows.first) : null;
   }
 }

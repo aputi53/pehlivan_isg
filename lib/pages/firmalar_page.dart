@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:archive/archive_io.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:excel/excel.dart' hide Border;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -21,12 +22,16 @@ class FirmalarPage extends StatefulWidget {
 }
 
 class _FirmalarPageState extends State<FirmalarPage> {
+  final _messengerKey = GlobalKey<ScaffoldMessengerState>();
   List<Map<String, dynamic>> _firmalar = [];
   bool _loading = true;
+  bool _syncing = false;
   final _aramaCtrl = TextEditingController();
   String _arama = '';
   String _grupFiltre = 'tumu'; // tumu | gruplu | grupsuz
   String _siralama = 'isimAZ'; // isimAZ | isimZA | grupAZ | grupZA
+  bool _secimModu = false;
+  final Set<int> _secilen = {};
 
   @override
   void initState() {
@@ -46,6 +51,57 @@ class _FirmalarPageState extends State<FirmalarPage> {
     setState(() => _loading = true);
     final list = await DatabaseService.getAllFirmalar();
     if (mounted) setState(() { _firmalar = list; _loading = false; });
+  }
+
+  Future<void> _pcdenSyncYap() async {
+    setState(() => _syncing = true);
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('pehlivan_sync')
+          .doc('firmalar')
+          .get();
+      if (!doc.exists) throw Exception('PC\'den firma yayınlanmamış');
+      final veriStr = doc.data()?['veri'] as String?;
+      if (veriStr == null) throw Exception('Veri boş');
+      final veri = jsonDecode(veriStr) as Map<String, dynamic>;
+      final firmalarData = veri['firmalar'] as List<dynamic>? ?? [];
+      final sonuc = await DatabaseService.syncFirmalar(firmalarData);
+      await _loadData();
+      if (mounted) {
+        final eklenen = sonuc['eklenen'] ?? 0;
+        final guncellenen = sonuc['guncellenen'] ?? 0;
+        final atlanan = sonuc['atlanan'] ?? 0;
+        final toplam = eklenen + guncellenen;
+        String mesaj;
+        if (eklenen > 0 && guncellenen > 0) {
+          mesaj = '$toplam firma yüklendi ($eklenen yeni, $guncellenen güncellendi)';
+        } else if (eklenen > 0) {
+          mesaj = '$eklenen yeni firma eklendi';
+        } else {
+          mesaj = '$toplam firma güncellendi';
+        }
+        if (atlanan > 0) mesaj += ' • $atlanan ünvansız atlandı';
+        _messengerKey.currentState!.showSnackBar(SnackBar(
+          content: Text(mesaj),
+          backgroundColor: Colors.green.shade700,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        _messengerKey.currentState!.showSnackBar(SnackBar(
+          content: Text('Hata: $e'),
+          backgroundColor: Colors.red.shade800,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
   }
 
   List<Map<String, dynamic>> get _filtered {
@@ -215,20 +271,87 @@ class _FirmalarPageState extends State<FirmalarPage> {
       ),
     );
     if (confirm != true) return;
+
+    final saved = _firmalar.map((f) => <String, dynamic>{
+      'isim': f['isim'],
+      'telefon': f['telefon'] ?? '',
+      'mail': f['mail'] ?? '',
+      'grupId': f['grupId'],
+    }).toList();
+
     await DatabaseService.deleteAllFirmalar();
     await _loadData();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text("Tüm firmalar silindi"),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: const Color(0xFF1F2937),
-          margin: const EdgeInsets.all(16),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    if (!mounted) return;
+
+    _messengerKey.currentState!.clearSnackBars();
+    _messengerKey.currentState!.showSnackBar(
+      SnackBar(
+        content: Text("${saved.length} firma silindi"),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF1F2937),
+        duration: const Duration(seconds: 5),
+        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        action: SnackBarAction(
+          label: 'Geri Al',
+          textColor: Colors.amber,
+          onPressed: () async {
+            for (final f in saved) {
+              final newId = await DatabaseService.insertFirmaStandalone(
+                f['isim'] as String,
+                f['telefon'] as String,
+                f['mail'] as String,
+              );
+              if (f['grupId'] != null) {
+                await DatabaseService.assignFirmaToGrup(newId, f['grupId'] as int);
+              }
+            }
+            _loadData();
+          },
         ),
-      );
+      ),
+    );
+  }
+
+  Future<void> _secilenSil() async {
+    if (_secilen.isEmpty) return;
+    final colors = AppColors.of(context);
+    final sayi = _secilen.length;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: colors.card,
+        title: Text('$sayi Firma Sil', style: TextStyle(color: colors.text)),
+        content: Text(
+          'Seçili $sayi firma ve bağlı tüm verileri silinecek. Devam edilsin mi?',
+          style: TextStyle(color: colors.text.withValues(alpha: 0.7)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('İptal', style: TextStyle(color: colors.text.withValues(alpha: 0.54))),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Sil', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    for (final id in _secilen) {
+      await DatabaseService.deleteFirma(id);
     }
+    setState(() { _secimModu = false; _secilen.clear(); });
+    await _loadData();
+    if (!mounted) return;
+    _messengerKey.currentState!.showSnackBar(SnackBar(
+      content: Text('$sayi firma silindi'),
+      backgroundColor: Colors.red.shade700,
+      behavior: SnackBarBehavior.floating,
+      margin: const EdgeInsets.all(16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    ));
   }
 
   void _firmaMenu(Map<String, dynamic> f) {
@@ -312,7 +435,7 @@ class _FirmalarPageState extends State<FirmalarPage> {
               _menuTile(Icons.copy_outlined, 'Telefonu Kopyala', colors.textMuted, () {
                 Navigator.pop(context);
                 Clipboard.setData(ClipboardData(text: telefon));
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                _messengerKey.currentState!.showSnackBar(SnackBar(
                   content: Text('$telefon kopyalandı'),
                   behavior: SnackBarBehavior.floating,
                   duration: const Duration(seconds: 2),
@@ -351,8 +474,8 @@ class _FirmalarPageState extends State<FirmalarPage> {
               await _loadData();
 
               if (!mounted) return;
-              ScaffoldMessenger.of(context).clearSnackBars();
-              ScaffoldMessenger.of(context).showSnackBar(
+              _messengerKey.currentState!.clearSnackBars();
+              _messengerKey.currentState!.showSnackBar(
                 SnackBar(
                   content: Text('$isim silindi'),
                   behavior: SnackBarBehavior.floating,
@@ -455,7 +578,7 @@ class _FirmalarPageState extends State<FirmalarPage> {
         final sheetNames = excel.tables.keys.toList();
         if (sheetNames.isEmpty) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
+            _messengerKey.currentState!.showSnackBar(
               const SnackBar(content: Text('Excel dosyasında sayfa bulunamadı')),
             );
           }
@@ -478,7 +601,7 @@ class _FirmalarPageState extends State<FirmalarPage> {
     } catch (e, st) {
       debugPrint('KATIP_IMPORT_ERROR: $e\n$st');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        _messengerKey.currentState!.showSnackBar(
           SnackBar(content: Text('Dosya okunurken hata: $e'),
               backgroundColor: Colors.redAccent),
         );
@@ -488,7 +611,7 @@ class _FirmalarPageState extends State<FirmalarPage> {
 
     if (tumSatirlar.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        _messengerKey.currentState!.showSnackBar(
           const SnackBar(content: Text('Dosyada veri bulunamadı')),
         );
       }
@@ -531,7 +654,7 @@ class _FirmalarPageState extends State<FirmalarPage> {
 
     await _loadData();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      _messengerKey.currentState!.showSnackBar(
         SnackBar(
           content: Text('$added firma eklendi, $updated firma güncellendi'),
           backgroundColor: const Color(0xFF1F2937),
@@ -669,7 +792,7 @@ class _FirmalarPageState extends State<FirmalarPage> {
 
       await _loadData();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        _messengerKey.currentState!.showSnackBar(
           SnackBar(
             content: Text("$added firma yüklendi"),
             behavior: SnackBarBehavior.floating,
@@ -682,7 +805,7 @@ class _FirmalarPageState extends State<FirmalarPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        _messengerKey.currentState!.showSnackBar(
           SnackBar(
             content: Text("Dosya okunamadı: $e"),
             behavior: SnackBarBehavior.floating,
@@ -794,41 +917,97 @@ class _FirmalarPageState extends State<FirmalarPage> {
   Widget build(BuildContext context) {
     final filtered = _filtered;
     final colors = AppColors.of(context);
-    return Scaffold(
+    return ScaffoldMessenger(
+      key: _messengerKey,
+      child: Scaffold(
       appBar: AppBar(
         backgroundColor: colors.card,
         foregroundColor: colors.text,
         automaticallyImplyLeading: false,
-        title: Text(
-          "Firmalar",
-          style: GoogleFonts.outfit(
-            color: colors.text,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
-        ),
+        title: _secimModu
+            ? Text(
+                _secilen.isEmpty ? 'Seçim Modu' : '${_secilen.length} seçildi',
+                style: GoogleFonts.outfit(
+                  color: colors.text,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                ),
+              )
+            : Text(
+                "Firmalar",
+                style: GoogleFonts.outfit(
+                  color: colors.text,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                ),
+              ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Container(height: 1, color: colors.border),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.account_balance_outlined,
-                color: Color(0xFF4FC3F7)),
-            tooltip: "ISG-Katip Aktar",
-            onPressed: _isgKatipImport,
-          ),
-          IconButton(
-            icon: Icon(Icons.upload_file_outlined, color: colors.textMuted),
-            tooltip: "CSV Yükle",
-            onPressed: _csvImport,
-          ),
-          IconButton(
-            icon: Icon(Icons.delete_sweep_outlined, color: colors.textMuted),
-            tooltip: "Tümünü Sil",
-            onPressed: _deleteAll,
-          ),
-        ],
+        actions: _secimModu
+            ? [
+                TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      if (_secilen.length == filtered.length) {
+                        _secilen.clear();
+                      } else {
+                        _secilen.addAll(filtered.map((f) => f['id'] as int));
+                      }
+                    });
+                  },
+                  icon: Icon(
+                    _secilen.length == filtered.length
+                        ? Icons.deselect
+                        : Icons.select_all,
+                    size: 18,
+                    color: colors.accent,
+                  ),
+                  label: Text(
+                    _secilen.length == filtered.length ? 'Seçimi Kaldır' : 'Tümünü Seç',
+                    style: TextStyle(color: colors.accent, fontSize: 13),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                  tooltip: 'Seçilenleri Sil',
+                  onPressed: _secilen.isEmpty ? null : _secilenSil,
+                ),
+                IconButton(
+                  icon: Icon(Icons.close, color: colors.textMuted),
+                  tooltip: 'İptal',
+                  onPressed: () => setState(() { _secimModu = false; _secilen.clear(); }),
+                ),
+              ]
+            : [
+                if (_syncing)
+                  const Padding(
+                    padding: EdgeInsets.all(14),
+                    child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                  )
+                else
+                  IconButton(
+                    icon: Icon(Icons.cloud_download_outlined, color: colors.accent),
+                    tooltip: "PC'den Güncelle",
+                    onPressed: _pcdenSyncYap,
+                  ),
+                IconButton(
+                  icon: const Icon(Icons.account_balance_outlined, color: Color(0xFF4FC3F7)),
+                  tooltip: "ISG-Katip Aktar",
+                  onPressed: _isgKatipImport,
+                ),
+                IconButton(
+                  icon: Icon(Icons.upload_file_outlined, color: colors.textMuted),
+                  tooltip: "CSV Yükle",
+                  onPressed: _csvImport,
+                ),
+                IconButton(
+                  icon: Icon(Icons.checklist_outlined, color: colors.textMuted),
+                  tooltip: "Seç & Sil",
+                  onPressed: () => setState(() { _secimModu = true; _secilen.clear(); }),
+                ),
+              ],
       ),
       body: _loading
           ? const AppShimmerList(itemCount: 6)
@@ -915,17 +1094,26 @@ class _FirmalarPageState extends State<FirmalarPage> {
                             final grupAdi = f['grupAdi'] as String?;
                             final telefon =
                                 f['telefon'] as String? ?? '';
+                            final firmaId = f['id'] as int;
+                            final secili = _secilen.contains(firmaId);
                             return Container(
                               margin: const EdgeInsets.only(bottom: 8),
                               decoration: BoxDecoration(
-                                color: colors.card,
+                                color: secili
+                                    ? colors.accent.withValues(alpha: 0.08)
+                                    : colors.card,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                    color: colors.border),
+                                    color: secili ? colors.accent : colors.border),
                               ),
                               child: ListTile(
-                                onTap: () async {
-                                  await Navigator.push(
+                                onTap: _secimModu
+                                    ? () => setState(() {
+                                          if (secili) _secilen.remove(firmaId);
+                                          else _secilen.add(firmaId);
+                                        })
+                                    : () async {
+                                  final result = await Navigator.push<Map<String, dynamic>>(
                                     context,
                                     MaterialPageRoute(
                                       builder: (_) => FirmaDetayPage(
@@ -934,12 +1122,86 @@ class _FirmalarPageState extends State<FirmalarPage> {
                                     ),
                                   );
                                   _loadData();
+                                  if (!mounted || result == null) return;
+                                  final sf = result['firma'] as Map<String, dynamic>;
+                                  final sn = (result['notlar'] as List).cast<Map<String, dynamic>>();
+                                  final sr = (result['raporlar'] as List).cast<Map<String, dynamic>>();
+                                  final sb = (result['belgeler'] as List).cast<Map<String, dynamic>>();
+                                  _messengerKey.currentState!.clearSnackBars();
+                                  _messengerKey.currentState!.showSnackBar(
+                                    SnackBar(
+                                      content: Text("${sf['isim']} silindi"),
+                                      action: SnackBarAction(
+                                        label: 'Geri Al',
+                                        textColor: Colors.amber,
+                                        onPressed: () async {
+                                          final newId = await DatabaseService.insertFirmaStandalone(
+                                            sf['isim'] as String,
+                                            sf['telefon'] as String? ?? '',
+                                            sf['mail'] as String? ?? '',
+                                          );
+                                          if (sf['grupId'] != null) {
+                                            await DatabaseService.assignFirmaToGrup(newId, sf['grupId'] as int);
+                                          }
+                                          for (final n in sn) {
+                                            await DatabaseService.insertNot(
+                                              newId,
+                                              n['metin'] as String,
+                                              n['zaman'] as DateTime,
+                                              List<String>.from(n['fotoPaths'] as List),
+                                            );
+                                          }
+                                          for (final r in sr) {
+                                            await DatabaseService.insertGorselRapor(
+                                              id: r['id'] as String,
+                                              firmaId: newId,
+                                              baslik: r['baslik'] as String,
+                                              rapor: r['rapor'] as String,
+                                              tarih: r['tarih'] as DateTime,
+                                              fotoPaths: List<String>.from(r['fotoPaths'] as List),
+                                            );
+                                          }
+                                          for (final b in sb) {
+                                            await DatabaseService.insertBelge(
+                                              firmaId: newId,
+                                              baslik: b['baslik'] as String,
+                                              dosyaYolu: b['dosyaYolu'] as String,
+                                              tur: b['tur'] as String,
+                                              gecerlilikTarihi: b['gecerlilikTarihi'] as DateTime?,
+                                            );
+                                          }
+                                          _loadData();
+                                        },
+                                      ),
+                                      duration: const Duration(seconds: 5),
+                                      behavior: SnackBarBehavior.floating,
+                                      backgroundColor: const Color(0xFF1F2937),
+                                      margin: const EdgeInsets.all(16),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                  );
                                 },
-                                onLongPress: () => _firmaMenu(f),
+                                onLongPress: _secimModu
+                                    ? null
+                                    : () => setState(() {
+                                          _secimModu = true;
+                                          _secilen.add(firmaId);
+                                        }),
                                 contentPadding:
                                     const EdgeInsets.symmetric(
                                         horizontal: 14, vertical: 4),
-                                leading: Container(
+                                leading: _secimModu
+                                    ? Checkbox(
+                                        value: secili,
+                                        activeColor: colors.accent,
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(5)),
+                                        onChanged: (_) => setState(() {
+                                          if (secili) _secilen.remove(firmaId);
+                                          else _secilen.add(firmaId);
+                                        }),
+                                      )
+                                    : Container(
                                   width: 42,
                                   height: 42,
                                   decoration: BoxDecoration(
@@ -1014,11 +1276,18 @@ class _FirmalarPageState extends State<FirmalarPage> {
                                             fontWeight: FontWeight.w600),
                                       ),
                                     ),
-                                    const SizedBox(width: 4),
-                                    Icon(Icons.more_vert,
-                                        color: colors.textMuted
-                                            .withValues(alpha: 0.4),
-                                        size: 16),
+                                    if (!_secimModu) ...[
+                                      const SizedBox(width: 2),
+                                      GestureDetector(
+                                        onTap: () => _firmaMenu(f),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(6),
+                                          child: Icon(Icons.more_vert,
+                                              color: colors.textMuted,
+                                              size: 22),
+                                        ),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),
@@ -1034,6 +1303,7 @@ class _FirmalarPageState extends State<FirmalarPage> {
         backgroundColor: colors.accent,
         foregroundColor: Colors.black,
         child: const Icon(Icons.add),
+      ),
       ),
     );
   }

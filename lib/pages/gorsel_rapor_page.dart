@@ -336,6 +336,7 @@ class _GorselRaporPageState extends State<GorselRaporPage> {
               ],
             ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'gorsel_rapor_fab',
         backgroundColor: Colors.amber,
         foregroundColor: Colors.black,
         icon: const Icon(Icons.add_a_photo_outlined),
@@ -1142,7 +1143,7 @@ Yalnızca Türkçe yaz. Resmi ve profesyonel bir üslup kullan; yapay zeka dili 
 
     try {
       final model =
-          GenerativeModel(model: 'gemini-2.5-flash', apiKey: apiKey);
+          GenerativeModel(model: 'gemini-3.5-flash', apiKey: apiKey);
 
       final images = <DataPart>[];
       for (final p in _photos) {

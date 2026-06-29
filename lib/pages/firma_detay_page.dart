@@ -83,80 +83,27 @@ class _FirmaDetayPageState extends State<FirmaDetayPage>
               final savedNotlar = _notlar
                   .map((n) => Map<String, dynamic>.from(n))
                   .toList();
-              final savedRaporlar = List<GorselRapor>.from(_raporlar);
+              final savedRaporlar = _raporlar.map((r) => <String, dynamic>{
+                'id': r.id,
+                'baslik': r.baslik,
+                'rapor': r.rapor,
+                'tarih': r.tarih,
+                'fotoPaths': r.fotoPaths,
+              }).toList();
               final savedBelgeler = _belgeler
                   .map((b) => Map<String, dynamic>.from(b))
                   .toList();
 
               await DatabaseService.deleteFirma(widget.firmaId);
-              if (context.mounted) Navigator.pop(context); // dialog
-
+              if (!context.mounted) return;
+              Navigator.pop(context); // dialog kapat
               if (!mounted) return;
-
-              bool undone = false;
-              final snackCtrl =
-                  ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text("${savedFirma['isim']} silindi"),
-                  action: SnackBarAction(
-                    label: "Geri Al",
-                    textColor: Colors.amber,
-                    onPressed: () async {
-                      undone = true;
-                      final newId =
-                          await DatabaseService.insertFirmaStandalone(
-                        savedFirma['isim'] as String,
-                        savedFirma['telefon'] as String? ?? '',
-                        savedFirma['mail'] as String? ?? '',
-                      );
-                      if (savedFirma['grupId'] != null) {
-                        await DatabaseService.assignFirmaToGrup(
-                            newId, savedFirma['grupId'] as int);
-                      }
-                      for (final n in savedNotlar) {
-                        await DatabaseService.insertNot(
-                            newId,
-                            n['metin'] as String,
-                            n['zaman'] as DateTime,
-                            List<String>.from(n['fotoPaths'] as List));
-                      }
-                      for (final r in savedRaporlar) {
-                        await DatabaseService.insertGorselRapor(
-                          id: r.id,
-                          firmaId: newId,
-                          baslik: r.baslik,
-                          rapor: r.rapor,
-                          tarih: r.tarih,
-                          fotoPaths: r.fotoPaths,
-                        );
-                      }
-                      for (final b in savedBelgeler) {
-                        await DatabaseService.insertBelge(
-                          firmaId: newId,
-                          baslik: b['baslik'] as String,
-                          dosyaYolu: b['dosyaYolu'] as String,
-                          tur: b['tur'] as String,
-                          gecerlilikTarihi:
-                              b['gecerlilikTarihi'] as DateTime?,
-                        );
-                      }
-                      if (mounted) Navigator.pop(context);
-                    },
-                  ),
-                  duration: const Duration(seconds: 5),
-                  behavior: SnackBarBehavior.floating,
-                  backgroundColor: const Color(0xFF1F2937),
-                  margin: const EdgeInsets.all(16),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                ),
-              );
-
-              final reason = await snackCtrl.closed;
-              if (!undone && mounted &&
-                  reason != SnackBarClosedReason.action) {
-                Navigator.pop(context); // pop detail page
-              }
+              Navigator.pop(context, {
+                'firma': savedFirma,
+                'notlar': savedNotlar,
+                'raporlar': savedRaporlar,
+                'belgeler': savedBelgeler,
+              });
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text("Sil"),
@@ -442,6 +389,15 @@ class _GenelTabState extends State<_GenelTab> {
     final ziyaretTarihi = firma['ziyaretTarihi'] as DateTime?;
     final grupId = firma['grupId'] as int?;
     final grupAdi = firma['grupAdi'] as String?;
+    final sgkNo = firma['sgkNo'] as String? ?? '';
+    final tehlikeSinifi = firma['tehlikeSinifi'] as String? ?? '';
+    final adres = firma['adres'] as String? ?? '';
+    final uzmanIsim = firma['uzmanIsim'] as String? ?? '';
+    final uzmanBelgeNo = firma['uzmanBelgeNo'] as String? ?? '';
+    final hekimIsim = firma['hekimIsim'] as String? ?? '';
+    final hekimBelgeNo = firma['hekimBelgeNo'] as String? ?? '';
+    final hasIsgData = sgkNo.isNotEmpty || tehlikeSinifi.isNotEmpty ||
+        adres.isNotEmpty || uzmanIsim.isNotEmpty || hekimIsim.isNotEmpty;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -526,6 +482,64 @@ class _GenelTabState extends State<_GenelTab> {
           ),
         ),
         const SizedBox(height: 12),
+
+        if (hasIsgData) ...[
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colors.card,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: colors.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Icon(Icons.verified_outlined, color: colors.accent, size: 18),
+                  const SizedBox(width: 8),
+                  Text('ISG Bilgileri', style: TextStyle(color: colors.text, fontWeight: FontWeight.bold, fontSize: 14)),
+                ]),
+                if (sgkNo.isNotEmpty || tehlikeSinifi.isNotEmpty || adres.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  if (sgkNo.isNotEmpty) _isgRow(Icons.badge_outlined, 'SGK Sicil No', sgkNo, Colors.blue, colors),
+                  if (tehlikeSinifi.isNotEmpty) ...[
+                    if (sgkNo.isNotEmpty) const SizedBox(height: 8),
+                    _isgRow(Icons.warning_amber_outlined, 'Tehlike Sınıfı', tehlikeSinifi, _tehlikeRengi(tehlikeSinifi), colors),
+                  ],
+                  if (adres.isNotEmpty) ...[
+                    if (sgkNo.isNotEmpty || tehlikeSinifi.isNotEmpty) const SizedBox(height: 8),
+                    _isgRow(Icons.location_on_outlined, 'Adres', adres, Colors.grey, colors),
+                  ],
+                ],
+                if (uzmanIsim.isNotEmpty) ...[
+                  const Divider(color: Colors.white12, height: 20),
+                  Row(children: [
+                    const Icon(Icons.engineering_outlined, color: Colors.teal, size: 15),
+                    const SizedBox(width: 6),
+                    Text('İSG Uzmanı', style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+                  ]),
+                  const SizedBox(height: 4),
+                  Text(uzmanIsim, style: TextStyle(color: colors.text, fontSize: 13, fontWeight: FontWeight.w500)),
+                  if (uzmanBelgeNo.isNotEmpty)
+                    Text('Belge: $uzmanBelgeNo', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                ],
+                if (hekimIsim.isNotEmpty) ...[
+                  const Divider(color: Colors.white12, height: 20),
+                  Row(children: [
+                    const Icon(Icons.local_hospital_outlined, color: Colors.green, size: 15),
+                    const SizedBox(width: 6),
+                    Text('İşyeri Hekimi', style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+                  ]),
+                  const SizedBox(height: 4),
+                  Text(hekimIsim, style: TextStyle(color: colors.text, fontSize: 13, fontWeight: FontWeight.w500)),
+                  if (hekimBelgeNo.isNotEmpty)
+                    Text('Belge: $hekimBelgeNo', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
 
         // Grup atama
         Container(
@@ -766,6 +780,33 @@ class _GenelTabState extends State<_GenelTab> {
             },
           );
         }),
+      ],
+    );
+  }
+
+  Color _tehlikeRengi(String sinif) {
+    final s = sinif.toUpperCase();
+    if (s.contains('ÇOK')) return Colors.red;
+    if (s.contains('TEHLİKEL')) return Colors.orange;
+    if (s.contains('AZ')) return Colors.green;
+    return Colors.grey;
+  }
+
+  Widget _isgRow(IconData icon, String label, String value, Color color, AppColors colors) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: color, size: 15),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: const TextStyle(color: Colors.grey, fontSize: 10)),
+              Text(value, style: TextStyle(color: colors.text, fontSize: 13)),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -1202,6 +1243,7 @@ class _RaporlarTab extends StatelessWidget {
           right: 16,
           bottom: 16,
           child: FloatingActionButton(
+            heroTag: 'firma_detay_fab',
             backgroundColor: colors.accent,
             foregroundColor: Colors.black,
             onPressed: () {

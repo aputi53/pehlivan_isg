@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "313942210216",
+    "project_id": "pehlivan-isg",
+    "storage_bucket": "pehlivan-isg.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:313942210216:android:c8a15820486a122617f49d",
+        "android_client_info": {
+          "package_name": "com.pehlivanisg.pehlivan_isg"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDHEbwnepk_AaBXauUaJFZuTqAKjCm2MV8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

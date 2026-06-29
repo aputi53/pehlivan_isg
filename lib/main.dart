@@ -1,11 +1,13 @@
 import 'dart:io';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'package:pehlivan_isg/firebase_options.dart';
 import 'package:pehlivan_isg/screens/home_screen.dart';
 import 'package:pehlivan_isg/screens/security/app_lock_wrapper.dart';
 import 'package:pehlivan_isg/services/notification_service.dart';
@@ -20,6 +22,8 @@ Future<void> main() async {
   }
 
   await dotenv.load(fileName: ".env");
+
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   await NotificationService.initialize();
   NotificationService.checkExpiringDocuments();

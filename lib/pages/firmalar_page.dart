@@ -26,6 +26,7 @@ class _FirmalarPageState extends State<FirmalarPage> {
   List<Map<String, dynamic>> _firmalar = [];
   bool _loading = true;
   bool _syncing = false;
+  bool _uploading = false;
   final _aramaCtrl = TextEditingController();
   String _arama = '';
   String _grupFiltre = 'tumu'; // tumu | gruplu | grupsuz
@@ -71,14 +72,19 @@ class _FirmalarPageState extends State<FirmalarPage> {
         final eklenen = sonuc['eklenen'] ?? 0;
         final guncellenen = sonuc['guncellenen'] ?? 0;
         final atlanan = sonuc['atlanan'] ?? 0;
-        final toplam = eklenen + guncellenen;
+        final pcGelen = firmalarData.length;
+        // Gerçek DB sayısı: _loadData() yeni değeri yükledi, _firmalar.length kullan
+        final gercekSayi = _firmalar.length;
         String mesaj;
         if (eklenen > 0 && guncellenen > 0) {
-          mesaj = '$toplam firma yüklendi ($eklenen yeni, $guncellenen güncellendi)';
+          mesaj = 'Sync tamam: $gercekSayi firma ($eklenen yeni, $guncellenen güncellendi)';
         } else if (eklenen > 0) {
-          mesaj = '$eklenen yeni firma eklendi';
+          mesaj = 'Sync tamam: $gercekSayi firma ($eklenen yeni eklendi)';
         } else {
-          mesaj = '$toplam firma güncellendi';
+          mesaj = 'Sync tamam: $gercekSayi firma ($guncellenen güncellendi)';
+        }
+        if (gercekSayi < pcGelen - atlanan) {
+          mesaj += ' ⚠️ PC\'de ${pcGelen - atlanan} firma var, ${pcGelen - atlanan - gercekSayi} kayıp!';
         }
         if (atlanan > 0) mesaj += ' • $atlanan ünvansız atlandı';
         _messengerKey.currentState!.showSnackBar(SnackBar(
@@ -101,6 +107,65 @@ class _FirmalarPageState extends State<FirmalarPage> {
       }
     } finally {
       if (mounted) setState(() => _syncing = false);
+    }
+  }
+
+  Future<void> _sahaDenetimPcYeGonder() async {
+    setState(() => _uploading = true);
+    try {
+      final veri = await DatabaseService.getSahaDenetimData();
+      final gidildi = veri.where((f) => f['durum'] == 'GİDİLDİ').length;
+      final gidilmedi = veri.where((f) => f['durum'] == 'GİDİLMEDİ').length;
+      final kimseyok = veri.where((f) => f['durum'] == 'KİMSE_YOK').length;
+
+      await FirebaseFirestore.instance
+          .collection('pehlivan_sync')
+          .doc('saha_raporu')
+          .set({
+        'tarih': DateTime.now().toIso8601String(),
+        'toplam': veri.length,
+        'gidildi': gidildi,
+        'gidilmedi': gidilmedi,
+        'kimseyok': kimseyok,
+        'veri': jsonEncode(veri.map((f) => {
+          'pcId': f['pcId'],
+          'mobilId': f['mobilId'],
+          'isim': f['isim'],
+          'grupAdi': f['grupAdi'],
+          'durum': f['durum'],
+          'ziyaretTarihi': f['ziyaretTarihi']?.toString(),
+          'notlar': (f['notlar'] as List).map((n) => {
+            'metin': n['metin'],
+            'zaman': n['zaman'],
+            'fotoSayisi': n['fotoSayisi'],
+          }).toList(),
+          'raporSayisi': f['raporSayisi'],
+        }).toList()),
+      });
+
+      if (mounted) {
+        _messengerKey.currentState!.showSnackBar(SnackBar(
+          content: Text(
+              '${veri.length} firma PC\'ye gönderildi • $gidildi gidildi / $kimseyok kimse yok / $gidilmedi gidilmedi'),
+          backgroundColor: Colors.green.shade700,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 4),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        _messengerKey.currentState!.showSnackBar(SnackBar(
+          content: Text('Gönderme hatası: $e'),
+          backgroundColor: Colors.red.shade800,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _uploading = false);
     }
   }
 
@@ -989,7 +1054,7 @@ class _FirmalarPageState extends State<FirmalarPage> {
                 else
                   IconButton(
                     icon: Icon(Icons.cloud_download_outlined, color: colors.accent),
-                    tooltip: "PC'den Güncelle",
+                    tooltip: "PC'den Grupları İndir",
                     onPressed: _pcdenSyncYap,
                   ),
                 IconButton(

@@ -12,9 +12,11 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:pehlivan_isg/pages/ai_asistan_page.dart';
 import 'package:pehlivan_isg/pages/aksiyon_page.dart';
 import 'package:pehlivan_isg/pages/ayarlar_page.dart';
+import 'package:pehlivan_isg/pages/egitim_katilim_page.dart';
 import 'package:pehlivan_isg/pages/firmalar_page.dart';
 import 'package:pehlivan_isg/pages/profil_page.dart';
 import 'package:pehlivan_isg/pages/raporlar_page.dart';
+import 'package:pehlivan_isg/pages/sertifika_page.dart';
 import 'package:pehlivan_isg/pages/takvim_page.dart';
 import 'package:pehlivan_isg/screens/saha_denetim_screen.dart';
 import 'package:pehlivan_isg/services/database_service.dart';
@@ -37,6 +39,7 @@ class _AnaEkranState extends State<AnaEkran> {
 
   void _switchTab(int index) {
     HapticFeedback.selectionClick();
+    ScaffoldMessenger.of(context).clearSnackBars();
     setState(() => _selectedIndex = index);
   }
 
@@ -1300,6 +1303,35 @@ class _DigerlerPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _SectionTitle(title: 'EĞİTİM & BELGELENDİRME', colors: colors),
+            const SizedBox(height: 14),
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 1.45,
+              children: [
+                _DigerItem(
+                  icon: Icons.workspace_premium_rounded,
+                  label: 'Sertifika',
+                  sublabel: 'Eğitim sertifikaları & PDF',
+                  color: const Color(0xFFE8B84B),
+                  onTap: () => Navigator.push(
+                      context, _fadeRoute(const SertifikaPage())),
+                ),
+                _DigerItem(
+                  icon: Icons.assignment_rounded,
+                  label: 'Eğitim Katılım',
+                  sublabel: 'Devam tutanakları & imza',
+                  color: const Color(0xFF4FC3F7),
+                  onTap: () => Navigator.push(
+                      context, _fadeRoute(const EgitimKatilimPage())),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
             _SectionTitle(title: 'ÖZELLİKLER', colors: colors),
             const SizedBox(height: 14),
             GridView.count(

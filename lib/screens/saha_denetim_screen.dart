@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:pehlivan_isg/pages/gorsel_rapor_page.dart';
 import 'package:pehlivan_isg/utils/platform_utils.dart';
 import 'package:pehlivan_isg/services/database_service.dart';
@@ -23,6 +25,8 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
   final _messengerKey = GlobalKey<ScaffoldMessengerState>();
   List<Map<String, dynamic>> gruplar = [];
   bool _loading = true;
+  bool _syncing = false;
+  bool _uploading = false;
 
   @override
   void initState() {
@@ -73,6 +77,133 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
     }).toList();
 
     if (mounted) setState(() { gruplar = converted; _loading = false; });
+  }
+
+  void _showSnack(String msg, Color renk) {
+    _messengerKey.currentState?.showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: renk,
+        behavior: SnackBarBehavior.floating, margin: const EdgeInsets.all(16)),
+    );
+  }
+
+  Future<void> _grupSyncYap() async {
+    setState(() => _syncing = true);
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('pehlivan_sync')
+          .doc('gruplar')
+          .get();
+      if (!doc.exists) throw Exception('Firebase\'de grup verisi bulunamadı');
+      final veriStr = doc.data()?['veri'] as String?;
+      if (veriStr == null) throw Exception('Veri boş');
+      final veri = jsonDecode(veriStr) as Map<String, dynamic>;
+      final gruplarData = veri['gruplar'] as List<dynamic>? ?? [];
+      final sayi = await DatabaseService.syncGruplar(gruplarData);
+      if (mounted) {
+        _showSnack('$sayi grup senkronize edildi', Colors.green);
+        _loadData();
+      }
+    } catch (e) {
+      if (mounted) _showSnack('Hata: $e', Colors.red);
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
+  }
+
+  Future<void> _firmaSyncYap() async {
+    setState(() => _syncing = true);
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('pehlivan_sync')
+          .doc('firmalar')
+          .get();
+      if (!doc.exists) throw Exception('Firma verisi henüz yayınlanmamış');
+      final veriStr = doc.data()?['veri'] as String?;
+      if (veriStr == null) throw Exception('Veri boş');
+      final veri = jsonDecode(veriStr) as Map<String, dynamic>;
+      final firmalarData = veri['firmalar'] as List<dynamic>? ?? [];
+      final sayi = await DatabaseService.syncFirmalar(firmalarData);
+      if (mounted) {
+        _showSnack('$sayi yeni firma eklendi', Colors.green);
+        _loadData();
+      }
+    } catch (e) {
+      if (mounted) _showSnack('Hata: $e', Colors.red);
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
+  }
+
+  Future<void> _planSyncYap() async {
+    final simdi = DateTime.now();
+    final docAdi = 'plan_${simdi.year}_${simdi.month.toString().padLeft(2, '0')}';
+    setState(() => _syncing = true);
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('pehlivan_sync')
+          .doc(docAdi)
+          .get();
+      if (!doc.exists) throw Exception('Bu ay planı henüz yayınlanmamış');
+      final veriStr = doc.data()?['veri'] as String?;
+      if (veriStr == null) throw Exception('Plan verisi boş');
+      final veri = jsonDecode(veriStr) as Map<String, dynamic>;
+      final plan = veri['plan'] as List<dynamic>? ?? [];
+      final sayi = await DatabaseService.syncPlan(plan, simdi.year, simdi.month);
+      if (mounted) {
+        _showSnack('Plan yüklendi — $sayi grup güncellendi', Colors.green);
+        _loadData();
+      }
+    } catch (e) {
+      if (mounted) _showSnack('Hata: $e', Colors.red);
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
+  }
+
+  Future<void> _sahaDenetimPcYeGonder() async {
+    setState(() => _uploading = true);
+    try {
+      final veri = await DatabaseService.getSahaDenetimData();
+      final gidildi   = veri.where((f) => f['durum'] == 'GİDİLDİ').length;
+      final gidilmedi = veri.where((f) => f['durum'] == 'GİDİLMEDİ').length;
+      final kimseyok  = veri.where((f) => f['durum'] == 'KİMSE_YOK').length;
+
+      await FirebaseFirestore.instance
+          .collection('pehlivan_sync')
+          .doc('saha_raporu')
+          .set({
+        'tarih': DateTime.now().toIso8601String(),
+        'toplam': veri.length,
+        'gidildi': gidildi,
+        'gidilmedi': gidilmedi,
+        'kimseyok': kimseyok,
+        'veri': jsonEncode(veri.map((f) => {
+          'pcId': f['pcId'],
+          'mobilId': f['mobilId'],
+          'isim': f['isim'],
+          'grupAdi': f['grupAdi'],
+          'durum': f['durum'],
+          'ziyaretTarihi': f['ziyaretTarihi']?.toString(),
+          'notlar': (f['notlar'] as List).map((n) => {
+            'metin': n['metin'],
+            'zaman': n['zaman'],
+            'fotoSayisi': n['fotoSayisi'],
+          }).toList(),
+          'raporSayisi': f['raporSayisi'],
+        }).toList()),
+      });
+
+      if (mounted) {
+        _showSnack(
+          '${veri.length} firma PC\'ye gönderildi • $gidildi gidildi / $kimseyok kimse yok / $gidilmedi gidilmedi',
+          Colors.green.shade700,
+        );
+      }
+    } catch (e) {
+      if (mounted) _showSnack('Gönderme hatası: $e', Colors.red);
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
   }
 
   void yeniGrupEklePopup() {
@@ -551,6 +682,49 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
           child: Container(height: 1, color: colors.border),
         ),
         actions: [
+          if (_uploading)
+            const Padding(
+              padding: EdgeInsets.all(14),
+              child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF10b981))),
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.cloud_upload_outlined, color: Color(0xFF10b981)),
+              tooltip: "Ziyaret Durumunu PC'ye Gönder",
+              onPressed: _sahaDenetimPcYeGonder,
+            ),
+          if (_syncing)
+            const Padding(
+              padding: EdgeInsets.all(14),
+              child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+            )
+          else
+            PopupMenuButton<String>(
+              icon: Icon(Icons.cloud_download_outlined, color: colors.accent),
+              tooltip: 'PC\'den Senkronize Et',
+              onSelected: (v) {
+                if (v == 'firmalar') _firmaSyncYap();
+                if (v == 'gruplar') _grupSyncYap();
+                if (v == 'plan') _planSyncYap();
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'firmalar', child: Row(children: [
+                  Icon(Icons.business_outlined, size: 18),
+                  SizedBox(width: 8),
+                  Text('Firmaları Güncelle', style: TextStyle(fontSize: 13)),
+                ])),
+                PopupMenuItem(value: 'gruplar', child: Row(children: [
+                  Icon(Icons.group_outlined, size: 18),
+                  SizedBox(width: 8),
+                  Text('Grupları Güncelle', style: TextStyle(fontSize: 13)),
+                ])),
+                PopupMenuItem(value: 'plan', child: Row(children: [
+                  Icon(Icons.calendar_month_outlined, size: 18),
+                  SizedBox(width: 8),
+                  Text('Bu Ay Planını Yükle', style: TextStyle(fontSize: 13)),
+                ])),
+              ],
+            ),
           IconButton(
             icon: Icon(Icons.add_rounded, color: colors.accent),
             onPressed: yeniGrupEklePopup,
@@ -572,6 +746,10 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
           final firmalar =
           List<Map<String, dynamic>>.from(grup["firmalar"]);
           final tarih = grup["tarih"] as DateTime;
+          final bugun = DateTime.now();
+          final bugunMu = tarih.year == bugun.year &&
+              tarih.month == bugun.month &&
+              tarih.day == bugun.day;
 
           return Container(
             margin: const EdgeInsets.only(bottom: 16),
@@ -579,7 +757,10 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
               color: colors.card,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                  color: colors.accent.withValues(alpha:0.2), width: 1),
+                  color: bugunMu
+                      ? Colors.green.withValues(alpha: 0.5)
+                      : colors.accent.withValues(alpha: 0.2),
+                  width: bugunMu ? 1.5 : 1),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -590,29 +771,52 @@ class _SahaDenetimScreenState extends State<SahaDenetimScreen> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 14),
                     decoration: BoxDecoration(
-                      color: colors.accent.withValues(alpha:0.07),
+                      color: bugunMu
+                          ? Colors.green.withValues(alpha: 0.09)
+                          : colors.accent.withValues(alpha: 0.07),
                       borderRadius: const BorderRadius.vertical(
                           top: Radius.circular(16)),
                     ),
                     child: Row(
                       children: [
                         Icon(Icons.folder_open,
-                            color: colors.accent, size: 20),
+                            color: bugunMu ? Colors.green : colors.accent,
+                            size: 20),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             grup["grupAdi"],
                             style: TextStyle(
-                              color: colors.accent,
+                              color: bugunMu ? Colors.green : colors.accent,
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
                             ),
                           ),
                         ),
+                        if (bugunMu)
+                          Container(
+                            margin: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: Colors.green.withValues(alpha: 0.4)),
+                            ),
+                            child: const Text('BUGÜN',
+                                style: TextStyle(
+                                    color: Colors.green,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700)),
+                          ),
                         Text(
                           "${tarih.day.toString().padLeft(2, '0')}.${tarih.month.toString().padLeft(2, '0')}.${tarih.year}",
                           style: TextStyle(
-                              color: Colors.grey[500], fontSize: 12),
+                              color: bugunMu
+                                  ? Colors.green.withValues(alpha: 0.8)
+                                  : Colors.grey[500],
+                              fontSize: 12),
                         ),
                         const SizedBox(width: 8),
                         Icon(Icons.edit_outlined,

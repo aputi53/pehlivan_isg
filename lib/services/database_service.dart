@@ -23,7 +23,7 @@ class DatabaseService {
 
     return openDatabase(
       path,
-      version: 10,
+      version: 11,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
       onOpen: (db) => db.execute('PRAGMA foreign_keys = ON'),
@@ -61,6 +61,7 @@ class DatabaseService {
         hekimBelgeNo TEXT,
         katipSertifikaNo TEXT,
         adres TEXT,
+        pc_id INTEGER,
         FOREIGN KEY (grupId) REFERENCES gruplar(id) ON DELETE SET NULL
       )
     ''');
@@ -395,6 +396,10 @@ class DatabaseService {
           firebaseTarih TEXT
         )
       ''');
+    }
+
+    if (oldVersion < 11) {
+      await db.execute('ALTER TABLE firmalar ADD COLUMN pc_id INTEGER');
     }
   }
 
@@ -1352,56 +1357,127 @@ class DatabaseService {
     final database = await db;
     int ekleneSayisi = 0;
     int guncelleneSayisi = 0;
-
     int atlanaSayisi = 0;
-    for (final f in firmalarData) {
-      final isim = (f['unvan'] as String? ?? '').trim();
-      if (isim.isEmpty) { atlanaSayisi++; continue; }
 
-      final fields = <String, dynamic>{
-        'telefon': f['telefon'] as String? ?? '',
-        'mail': f['mail'] as String? ?? '',
-        'adres': f['adres'] as String? ?? '',
-        'sgkNo': f['sgkNo'] as String? ?? '',
-        'tehlikeSinifi': f['tehlikeSinifi'] as String? ?? '',
-        'uzmanIsim': f['uzmanIsim'] as String? ?? '',
-        'uzmanBelgeNo': f['uzmanBelgeNo'] as String? ?? '',
-        'hekimIsim': f['hekimIsim'] as String? ?? '',
-        'hekimBelgeNo': f['hekimBelgeNo'] as String? ?? '',
-      };
+    await database.transaction((txn) async {
+      for (final f in firmalarData) {
+        final isim = (f['unvan'] as String? ?? '').trim();
+        if (isim.isEmpty) { atlanaSayisi++; continue; }
+        final sgkNo = (f['sgkNo'] as String? ?? '').trim();
 
-      final mevcut = await database.query('firmalar',
-          where: 'isim = ?', whereArgs: [isim], limit: 1);
-
-      if (mevcut.isEmpty) {
-        final insertData = <String, dynamic>{
-          'grupId': null,
+        final fields = <String, dynamic>{
           'isim': isim,
-          'durum': 'NORMAL',
+          'telefon': f['telefon'] as String? ?? '',
+          'mail': f['mail'] as String? ?? '',
+          'adres': f['adres'] as String? ?? '',
+          'sgkNo': sgkNo,
+          'tehlikeSinifi': f['tehlikeSinifi'] as String? ?? '',
+          'uzmanIsim': f['uzmanIsim'] as String? ?? '',
+          'uzmanBelgeNo': f['uzmanBelgeNo'] as String? ?? '',
+          'hekimIsim': f['hekimIsim'] as String? ?? '',
+          'hekimBelgeNo': f['hekimBelgeNo'] as String? ?? '',
         };
-        insertData.addAll(fields);
-        await database.insert('firmalar', insertData);
-        ekleneSayisi++;
-      } else {
-        final updates = <String, dynamic>{};
-        fields.forEach((k, v) {
-          if ((v as String).isNotEmpty) updates[k] = v;
-        });
-        if (updates.isNotEmpty) {
-          await database.update('firmalar', updates,
-              where: 'isim = ?', whereArgs: [isim]);
+
+        final pcId = (f['pcId'] as num?)?.toInt();
+
+        List<Map<String, dynamic>> mevcut = [];
+        if (pcId != null) {
+          // pc_id varsa: sadece pc_id ve sgkNo ile eşleştir, isme düşme
+          // (aynı isimli farklı firmalar pc_id ile ayırt edilir)
+          mevcut = await txn.rawQuery(
+              'SELECT id FROM firmalar WHERE pc_id = ? LIMIT 1', [pcId]);
+          if (mevcut.isEmpty && sgkNo.isNotEmpty) {
+            // Önceki sync'te pc_id yoktu, sgkNo ile eşle ve pc_id ata
+            mevcut = await txn.rawQuery(
+                'SELECT id FROM firmalar WHERE TRIM(sgkNo) = TRIM(?) LIMIT 1',
+                [sgkNo]);
+          }
+        } else {
+          // pc_id yoksa (eski yayın formatı): sgkNo → isim sırasıyla dene
+          if (sgkNo.isNotEmpty) {
+            mevcut = await txn.rawQuery(
+                'SELECT id FROM firmalar WHERE TRIM(sgkNo) = TRIM(?) LIMIT 1',
+                [sgkNo]);
+          }
+          if (mevcut.isEmpty) {
+            mevcut = await txn.rawQuery(
+                'SELECT id FROM firmalar WHERE LOWER(TRIM(isim)) = LOWER(TRIM(?)) LIMIT 1',
+                [isim]);
+          }
         }
-        guncelleneSayisi++;
+
+        if (mevcut.isEmpty) {
+          await txn.insert('firmalar', {
+            'grupId': null,
+            'durum': 'NORMAL',
+            'pc_id': pcId,
+            ...fields,
+          });
+          ekleneSayisi++;
+        } else {
+          final existingId = mevcut.first['id'] as int;
+          final updates = <String, dynamic>{'pc_id': pcId};
+          fields.forEach((k, v) {
+            if (v is String && v.isNotEmpty) updates[k] = v;
+          });
+          await txn.update('firmalar', updates,
+              where: 'id = ?', whereArgs: [existingId]);
+          guncelleneSayisi++;
+        }
       }
-    }
+    });
 
     await database.insert('ziyaret_sync_log', {
       'tip': 'firmalar',
       'tarih': DateTime.now().toIso8601String(),
       'firebaseTarih': DateTime.now().toIso8601String(),
-    });
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     return {'eklenen': ekleneSayisi, 'guncellenen': guncelleneSayisi, 'atlanan': atlanaSayisi};
+  }
+
+  /// Saha denetim verisini PC'ye göndermek için toplar.
+  /// Her firma: pcId, isim, durum, ziyaretTarihi, notlar (metin+zaman), fotoğraf sayısı
+  static Future<List<Map<String, dynamic>>> getSahaDenetimData() async {
+    final database = await db;
+    final rows = await database.rawQuery('''
+      SELECT f.id, f.pc_id, f.isim, f.durum, f.ziyaretTarihi,
+             g.grupAdi
+      FROM firmalar f
+      LEFT JOIN gruplar g ON f.grupId = g.id
+      ORDER BY f.isim COLLATE NOCASE ASC
+    ''');
+
+    final List<Map<String, dynamic>> result = [];
+    for (final row in rows) {
+      final firmaId = row['id'] as int;
+      final notRows = await database.query('notlar',
+          where: 'firmaId = ?', whereArgs: [firmaId], orderBy: 'zaman ASC');
+      final notlar = notRows.map((n) {
+        final fotolar = (jsonDecode(n['fotoPaths'] as String) as List).length;
+        return {
+          'metin': n['metin'] as String,
+          'zaman': n['zaman'] as String,
+          'fotoSayisi': fotolar,
+        };
+      }).toList();
+
+      final raporSayisi = (await database.rawQuery(
+          'SELECT COUNT(*) as c FROM gorsel_raporlar WHERE firmaId = ?',
+          [firmaId])).first['c'] as int;
+
+      result.add({
+        'pcId': row['pc_id'],
+        'mobilId': firmaId,
+        'isim': row['isim'],
+        'grupAdi': row['grupAdi'],
+        'durum': row['durum'],
+        'ziyaretTarihi': row['ziyaretTarihi'],
+        'notlar': notlar,
+        'raporSayisi': raporSayisi,
+      });
+    }
+    return result;
   }
 
   static Future<int> syncGruplar(List<dynamic> gruplarData) async {
@@ -1427,17 +1503,34 @@ class DatabaseService {
         grupId = mevcut.first['id'] as int;
       }
 
-      // Firmaları eşleştir — yoksa ekle, varsa grupId güncelle
+      // Firmaları eşleştir — pc_id varsa onunla, yoksa isme göre grupId ata
       final firmalar = g['firmalar'] as List<dynamic>? ?? [];
-      for (final firmaIsim in firmalar) {
-        final isim = firmaIsim as String? ?? '';
+      for (final firmaData in firmalar) {
+        int? pcId;
+        String isim;
+        if (firmaData is Map) {
+          pcId = (firmaData['pcId'] as num?)?.toInt();
+          isim = (firmaData['unvan'] as String? ?? '').trim();
+        } else {
+          isim = (firmaData as String? ?? '').trim();
+        }
         if (isim.isEmpty) continue;
-        final mevcut = await database.query('firmalar',
-            where: 'isim = ?', whereArgs: [isim], limit: 1);
+
+        List<Map<String, dynamic>> mevcut = [];
+        if (pcId != null) {
+          mevcut = await database.query('firmalar',
+              where: 'pc_id = ?', whereArgs: [pcId], limit: 1);
+        }
+        if (mevcut.isEmpty) {
+          mevcut = await database.query('firmalar',
+              where: 'LOWER(TRIM(isim)) = LOWER(TRIM(?))', whereArgs: [isim], limit: 1);
+        }
+
         if (mevcut.isEmpty) {
           await database.insert('firmalar', {
             'grupId': grupId,
             'isim': isim,
+            'pc_id': pcId,
             'telefon': '',
             'mail': '',
             'durum': 'NORMAL',
@@ -1447,8 +1540,8 @@ class DatabaseService {
           await database.update(
             'firmalar',
             {'grupId': grupId},
-            where: 'isim = ?',
-            whereArgs: [isim],
+            where: 'id = ?',
+            whereArgs: [mevcut.first['id']],
           );
         }
       }

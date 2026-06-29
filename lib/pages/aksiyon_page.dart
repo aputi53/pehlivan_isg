@@ -347,6 +347,7 @@ class _AksiyanPageState extends State<AksiyanPage> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'aksiyon_fab',
         backgroundColor: c.accent,
         foregroundColor: Colors.black,
         onPressed: _yeniAksiyon,

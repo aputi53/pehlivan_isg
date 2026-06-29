@@ -74,6 +74,7 @@ lib/
 | **Ayarlar** | Biyometrik, tema, yedekleme/geri yükleme | — |
 | **Ziyaret Planlama** | Firebase'den gruplar + aylık plan yükleme | 28 Haz |
 | **DB v10** | ziyaret_sync_log tablosu migration fix (v8 eksik tablo hatası çözüldü) | 28 Haz |
+| **PC Sync** | Masaüstü uygulama v3.2.0: AI altFaaliyetler endpoint, Havuz etiket dropdown, imla kuralı, Dashboard Özelleştir | 29 Haz |
 | **DB v9** | firmalar: adres kolonu eklendi | — |
 
 ---
@@ -159,5 +160,5 @@ Bu dosyayı gösterdiğinde Claude şunları bilecek:
 
 ---
 
-*Son güncelleme: 28 Haziran 2026 (1. Mobil Roadmap — v10 DB — Ziyaret Planlama, Firebase sync, çoklu silme)*
+*Son güncelleme: 29 Haziran 2026 (2. Mobil Roadmap — PC v3.2.0 sync notu eklendi)*
 *Hazırlayan: Claude Sonnet 4.6 — PehlivanİSG Geliştirme Oturumu*
